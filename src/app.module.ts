@@ -14,6 +14,8 @@ import { CowEventsModule } from './modules/cow-events/cow-events.module';
 import { MilkRecordsModule } from './modules/milk-records/milk-records.module';
 import { FinancialModule } from './modules/financial/financial.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { SeedModule } from './modules/seed/seed.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 // Controllers (for invitations public route)
 import { InvitationsController } from './modules/farms/farms.controller';
@@ -52,6 +54,8 @@ import { InvitationsController } from './modules/farms/farms.controller';
     MilkRecordsModule,
     FinancialModule,
     DashboardModule,
+    SeedModule,
+    ReportsModule,
   ],
   controllers: [InvitationsController],
 })

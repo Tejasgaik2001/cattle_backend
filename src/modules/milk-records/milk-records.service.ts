@@ -315,4 +315,35 @@ export class MilkRecordsService {
             avgDaily: parseFloat(r.total || '0') / daysDiff,
         }));
     }
+
+    /**
+     * Get monthly milk production trends for reports
+     */
+    async getMonthlyTrends(
+        farmId: string,
+        startDate?: string,
+        endDate?: string,
+    ): Promise<Array<{ month: string; totalMilk: number }>> {
+        // Default to last 6 months if not provided
+        const end = endDate ? new Date(endDate) : new Date();
+        const start = startDate ? new Date(startDate) : new Date(end.getFullYear(), end.getMonth() - 5, 1);
+
+        const records = await this.milkRecordRepository
+            .createQueryBuilder('record')
+            .innerJoin('record.cow', 'cow')
+            .select("TO_CHAR(record.date, 'Mon YYYY')", 'month')
+            .addSelect('SUM(record.amount)', 'totalMilk')
+            .where('cow.farmId = :farmId', { farmId })
+            .andWhere('record.date >= :startDate', { startDate: start })
+            .andWhere('record.date <= :endDate', { endDate: end })
+            .groupBy("TO_CHAR(record.date, 'Mon YYYY')")
+            .addGroupBy("TO_CHAR(record.date, 'YYYY-MM')")
+            .orderBy("TO_CHAR(record.date, 'YYYY-MM')", 'ASC')
+            .getRawMany();
+
+        return records.map(r => ({
+            month: r.month,
+            totalMilk: parseFloat(r.totalMilk || '0'),
+        }));
+    }
 }

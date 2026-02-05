@@ -6,14 +6,18 @@ import { FinancialTransaction } from '../../entities/financial-transaction.entit
 import { Cow } from '../../entities/cow.entity';
 import { FarmMembership } from '../../entities/farm-membership.entity';
 import { FarmsModule } from '../farms/farms.module';
+import { MilkRecordsModule } from '../milk-records/milk-records.module';
+import { ProductionFinanceController } from './production-finance.controller';
+import { ProductionFinanceService } from './production-finance.service';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([FinancialTransaction, Cow, FarmMembership]),
         FarmsModule,
+        MilkRecordsModule,
     ],
-    controllers: [FinancialController],
-    providers: [FinancialService],
-    exports: [FinancialService],
+    controllers: [FinancialController, ProductionFinanceController],
+    providers: [FinancialService, ProductionFinanceService],
+    exports: [FinancialService, ProductionFinanceService],
 })
 export class FinancialModule { }

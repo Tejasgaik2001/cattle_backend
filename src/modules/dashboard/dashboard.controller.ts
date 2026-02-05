@@ -11,9 +11,10 @@ import {
     ApiBearerAuth,
     ApiParam,
 } from '@nestjs/swagger';
-import { DashboardService } from './dashboard.service';
-import { AlertsService } from './alerts.service';
 import { FarmsService } from '../farms/farms.service';
+import { CowsService } from '../cows/cows.service';
+import { MilkRecordsService } from '../milk-records/milk-records.service';
+import { CowEventsService } from '../cow-events/cow-events.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators';
 import { User } from '../../entities/user.entity';
@@ -24,65 +25,63 @@ import { User } from '../../entities/user.entity';
 @UseGuards(JwtAuthGuard)
 export class DashboardController {
     constructor(
-        private readonly dashboardService: DashboardService,
-        private readonly alertsService: AlertsService,
         private readonly farmsService: FarmsService,
+        private readonly cowsService: CowsService,
+        private readonly milkRecordsService: MilkRecordsService,
+        private readonly cowEventsService: CowEventsService,
     ) { }
 
     @Get('summary')
-    @ApiOperation({ summary: 'Get farm dashboard summary' })
+    @ApiOperation({ summary: 'Get dashboard summary with aggregated metrics' })
     @ApiParam({ name: 'farmId', description: 'Farm UUID' })
-    @ApiResponse({
-        status: 200,
-        description: 'Dashboard summary with herd stats, milk production, etc.',
-        schema: {
-            example: {
-                totalHerdSize: 25,
-                activeCount: 22,
-                lactatingCowsCount: 15,
-                pregnantCowsCount: 5,
-                cowsUnderTreatmentCount: 2,
-                todayMilkTotal: 180.5,
-                yesterdayMilkTotal: 175.2,
-                milkChangePercent: 3.0,
-            },
-        },
-    })
-    async getSummary(
+    @ApiResponse({ status: 200, description: 'Dashboard summary data' })
+    async getDashboardSummary(
         @Param('farmId') farmId: string,
         @CurrentUser() user: User,
     ) {
         await this.farmsService.checkMembership(farmId, user.id);
-        return this.dashboardService.getSummary(farmId);
+
+        const [stats, todayMilk, yesterdayMilk, healthBreedingOverview] = await Promise.all([
+            this.cowsService.getStats(farmId),
+            this.milkRecordsService.getTodayTotal(farmId),
+            this.milkRecordsService.getYesterdayTotal(farmId),
+            this.cowEventsService.getHealthBreedingOverview(farmId),
+        ]);
+
+        return {
+            totalHerdSize: stats.totalCows,
+            lactatingCowsCount: stats.femaleCows, // Simplified - could be more specific
+            pregnantCowsCount: healthBreedingOverview.pregnantCows,
+            cowsUnderTreatmentCount: healthBreedingOverview.cowsUnderTreatment,
+            todayMilkTotal: todayMilk,
+            yesterdayMilkTotal: yesterdayMilk,
+        };
     }
 
     @Get('alerts')
-    @ApiOperation({ summary: 'Get active alerts (vaccinations due, health issues, calvings)' })
+    @ApiOperation({ summary: 'Get critical alerts for the farm' })
     @ApiParam({ name: 'farmId', description: 'Farm UUID' })
-    @ApiResponse({
-        status: 200,
-        description: 'List of active alerts sorted by priority',
-        schema: {
-            example: [
-                {
-                    id: 'vax-uuid',
-                    type: 'vaccination_due',
-                    title: 'Vaccination Due',
-                    message: 'FMD Vaccine is due on 2024-01-25',
-                    cowId: 'uuid',
-                    cowTagId: 'GV-001',
-                    cowName: 'Lakshmi',
-                    priority: 'medium',
-                    dueDate: '2024-01-25',
-                },
-            ],
-        },
-    })
+    @ApiResponse({ status: 200, description: 'List of critical alerts' })
     async getAlerts(
         @Param('farmId') farmId: string,
         @CurrentUser() user: User,
     ) {
         await this.farmsService.checkMembership(farmId, user.id);
-        return this.alertsService.getAlerts(farmId);
+
+        const tasks = await this.cowEventsService.getHealthBreedingTasks(farmId);
+
+        // Convert tasks to alerts format
+        const alerts = tasks.slice(0, 5).map(task => ({
+            id: task.id,
+            type: task.taskType === 'VACCINATION_DUE' ? 'vaccination_due' : 'health_issue',
+            title: task.taskType === 'VACCINATION_DUE' ? 'Vaccination Due' :
+                task.taskType === 'HEALTH_FOLLOWUP' ? 'Health Follow-up' : 'Calving Expected',
+            message: task.message,
+            cowId: task.cowId,
+            priority: task.urgency,
+            createdAt: new Date().toISOString(),
+        }));
+
+        return alerts;
     }
 }

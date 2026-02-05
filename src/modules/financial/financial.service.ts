@@ -185,17 +185,20 @@ export class FinancialService {
      */
     async getExpenseBreakdown(
         farmId: string,
-        startDate: string,
-        endDate: string,
+        startDate?: string,
+        endDate?: string,
     ): Promise<Array<{ category: string; amount: number }>> {
+        const start = startDate ? new Date(startDate) : new Date(new Date().getFullYear(), 0, 1); // Default to start of year
+        const end = endDate ? new Date(endDate) : new Date();
+
         const results = await this.transactionRepository
             .createQueryBuilder('transaction')
             .select('transaction.category', 'category')
             .addSelect('SUM(transaction.amount)', 'amount')
             .where('transaction.farmId = :farmId', { farmId })
             .andWhere('transaction.type = :type', { type: 'expense' })
-            .andWhere('transaction.date >= :startDate', { startDate })
-            .andWhere('transaction.date <= :endDate', { endDate })
+            .andWhere('transaction.date >= :startDate', { startDate: start })
+            .andWhere('transaction.date <= :endDate', { endDate: end })
             .groupBy('transaction.category')
             .orderBy('amount', 'DESC')
             .getRawMany();
@@ -230,5 +233,45 @@ export class FinancialService {
             ...overview,
             period: `${monthNames[now.getMonth()]} ${now.getFullYear()}`,
         };
+    }
+
+    /**
+     * Get monthly financial trends for reports
+     */
+    async getMonthlyTrends(
+        farmId: string,
+        startDate?: string,
+        endDate?: string,
+    ): Promise<Array<{ month: string; income: number; expenses: number; profit: number }>> {
+        // Default to last 6 months if not provided
+        const end = endDate ? new Date(endDate) : new Date();
+        const start = startDate ? new Date(startDate) : new Date(end.getFullYear(), end.getMonth() - 5, 1);
+
+        const records = await this.transactionRepository
+            .createQueryBuilder('tx')
+            .select("TO_CHAR(tx.date, 'Mon YYYY')", 'month')
+            .addSelect("TO_CHAR(tx.date, 'YYYY-MM')", 'yearMonth')
+            .addSelect(
+                "SUM(CASE WHEN tx.type = 'income' THEN tx.amount ELSE 0 END)",
+                'income'
+            )
+            .addSelect(
+                "SUM(CASE WHEN tx.type = 'expense' THEN tx.amount ELSE 0 END)",
+                'expenses'
+            )
+            .where('tx.farmId = :farmId', { farmId })
+            .andWhere('tx.date >= :startDate', { startDate: start })
+            .andWhere('tx.date <= :endDate', { endDate: end })
+            .groupBy("TO_CHAR(tx.date, 'Mon YYYY')")
+            .addGroupBy("TO_CHAR(tx.date, 'YYYY-MM')")
+            .orderBy("TO_CHAR(tx.date, 'YYYY-MM')", 'ASC')
+            .getRawMany();
+
+        return records.map(r => ({
+            month: r.month,
+            income: parseFloat(r.income || '0'),
+            expenses: parseFloat(r.expenses || '0'),
+            profit: parseFloat(r.income || '0') - parseFloat(r.expenses || '0'),
+        }));
     }
 }

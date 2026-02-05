@@ -245,4 +245,19 @@ export class CowsService {
             order: { tagId: 'ASC' },
         });
     }
+
+    /**
+     * Get farm statistics
+     */
+    async getStats(farmId: string) {
+        const totalCows = await this.cowRepository.count({ where: { farmId, lifecycleStatus: 'active' } });
+        const femaleCows = await this.cowRepository.count({ where: { farmId, lifecycleStatus: 'active', gender: 'female' } });
+        const maleCows = await this.cowRepository.count({ where: { farmId, lifecycleStatus: 'active', gender: 'male' } });
+
+        return {
+            totalCows,
+            femaleCows,
+            maleCows,
+        };
+    }
 }
