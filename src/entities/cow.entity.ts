@@ -35,8 +35,8 @@ export class Cow extends BaseEntity {
     @Column({ type: 'varchar' })
     gender: CowGender;
 
-    @Column({ type: 'varchar' })
-    breed: string;
+    @Column({ type: 'varchar', nullable: true })
+    breed: string | null;
 
     @Column({ name: 'date_of_birth', type: 'date' })
     dateOfBirth: Date;

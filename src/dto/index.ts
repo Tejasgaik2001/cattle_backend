@@ -5,4 +5,5 @@ export * from './cow';
 export * from './cow-event';
 export * from './milk-record';
 export * from './financial';
+export * from './health-breeding';
 export * from './common';

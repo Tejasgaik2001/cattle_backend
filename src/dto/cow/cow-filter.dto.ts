@@ -40,6 +40,30 @@ export class CowFilterDto {
     breed?: string;
 
     @ApiPropertyOptional({
+        description: 'Filter cows currently under treatment',
+    })
+    @IsOptional()
+    isUnderTreatment?: string;
+
+    @ApiPropertyOptional({
+        description: 'Filter confirmed pregnant cows',
+    })
+    @IsOptional()
+    isPregnant?: string;
+
+    @ApiPropertyOptional({
+        description: 'Filter cows with health issues in the last 7 days',
+    })
+    @IsOptional()
+    healthIssuesRecent?: string;
+
+    @ApiPropertyOptional({
+        description: 'Filter cows with due or overdue vaccinations',
+    })
+    @IsOptional()
+    vaccinationsDue?: string;
+
+    @ApiPropertyOptional({
         example: 1,
         description: 'Page number (starts from 1)',
         default: 1,

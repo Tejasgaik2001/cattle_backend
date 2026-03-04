@@ -93,6 +93,63 @@ export class CowsService {
             queryBuilder.andWhere('cow.breed ILIKE :breed', { breed: `%${filterDto.breed}%` });
         }
 
+        // Advanced Health/Breeding Filters
+        if (filterDto.isUnderTreatment === 'true') {
+            queryBuilder.andWhere(qb => {
+                const subQuery = qb.subQuery()
+                    .select('1')
+                    .from('cow_events', 'event')
+                    .where('event.cow_id = cow.id')
+                    .andWhere('event.type = :hType', { hType: 'HEALTH' })
+                    .andWhere("event.metadata->>'isUnderTreatment' = :isT", { isT: 'true' })
+                    .getQuery();
+                return `EXISTS ${subQuery}`;
+            });
+        }
+
+        if (filterDto.isPregnant === 'true') {
+            queryBuilder.andWhere(qb => {
+                const subQuery = qb.subQuery()
+                    .select('1')
+                    .from('cow_events', 'event')
+                    .where('event.cow_id = cow.id')
+                    .andWhere('event.type = :bType', { bType: 'BREEDING' })
+                    .andWhere("event.metadata->>'result' = :res", { res: 'confirmed' })
+                    .getQuery();
+                return `EXISTS ${subQuery}`;
+            });
+        }
+
+        if (filterDto.healthIssuesRecent === 'true') {
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            queryBuilder.andWhere(qb => {
+                const subQuery = qb.subQuery()
+                    .select('1')
+                    .from('cow_events', 'event')
+                    .where('event.cow_id = cow.id')
+                    .andWhere('event.type = :hType2', { hType2: 'HEALTH' })
+                    .andWhere('event.date >= :sDays', { sDays: sevenDaysAgo.toISOString().split('T')[0] })
+                    .getQuery();
+                return `EXISTS ${subQuery}`;
+            });
+        }
+
+        if (filterDto.vaccinationsDue === 'true') {
+            const nextWeek = new Date();
+            nextWeek.setDate(nextWeek.getDate() + 7);
+            queryBuilder.andWhere(qb => {
+                const subQuery = qb.subQuery()
+                    .select('1')
+                    .from('cow_events', 'event')
+                    .where('event.cow_id = cow.id')
+                    .andWhere('event.type = :vType', { vType: 'VACCINATION' })
+                    .andWhere("event.metadata->>'nextDueDate' <= :nWeek", { nWeek: nextWeek.toISOString().split('T')[0] })
+                    .getQuery();
+                return `EXISTS ${subQuery}`;
+            });
+        }
+
         // Apply sorting
         const sortBy = filterDto.sortBy || 'createdAt';
         const sortOrder = filterDto.sortOrder || 'DESC';

@@ -16,6 +16,7 @@ import { FinancialModule } from './modules/financial/financial.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { SeedModule } from './modules/seed/seed.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { HealthBreedingModule } from './modules/health-breeding/health-breeding.module';
 
 // Controllers (for invitations public route)
 import { InvitationsController } from './modules/farms/farms.controller';
@@ -56,6 +57,7 @@ import { InvitationsController } from './modules/farms/farms.controller';
     DashboardModule,
     SeedModule,
     ReportsModule,
+    HealthBreedingModule,
   ],
   controllers: [InvitationsController],
 })
