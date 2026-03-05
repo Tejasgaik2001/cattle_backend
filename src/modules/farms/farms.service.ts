@@ -187,4 +187,20 @@ export class FarmsService {
 
         return membership?.role || null;
     }
+
+    /**
+     * Get the default farm for a user (first farm they belong to)
+     */
+    async getDefaultFarmForUser(userId: string): Promise<string> {
+        const membership = await this.membershipRepository.findOne({
+            where: { userId },
+            order: { createdAt: 'ASC' }, // Get the oldest membership as default
+        });
+
+        if (!membership) {
+            throw new ForbiddenException('You are not a member of any farm');
+        }
+
+        return membership.farmId;
+    }
 }

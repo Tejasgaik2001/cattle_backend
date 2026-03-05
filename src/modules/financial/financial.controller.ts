@@ -27,7 +27,7 @@ import { formatDate, startOfMonth, endOfMonth } from '../../common/utils/date.ut
 
 @ApiTags('Financial')
 @ApiBearerAuth('JWT-auth')
-@Controller('api/v1/farms/:farmId/financial')
+@Controller('api/v1/financial')
 @UseGuards(JwtAuthGuard)
 export class FinancialController {
     constructor(
@@ -37,43 +37,40 @@ export class FinancialController {
 
     @Post('transactions')
     @ApiOperation({ summary: 'Create a financial transaction (owner only)' })
-    @ApiParam({ name: 'farmId', description: 'Farm UUID' })
     @ApiResponse({ status: 201, description: 'Transaction created' })
     @ApiResponse({ status: 403, description: 'Only owners can manage finances' })
     async create(
-        @Param('farmId') farmId: string,
         @Body() createDto: CreateTransactionDto,
         @CurrentUser() user: User,
     ) {
+        const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
         await this.farmsService.checkOwnership(farmId, user.id);
         return this.financialService.create(farmId, createDto, user.id);
     }
 
     @Get('transactions')
     @ApiOperation({ summary: 'Get transactions with filters (owner only)' })
-    @ApiParam({ name: 'farmId', description: 'Farm UUID' })
     @ApiResponse({ status: 200, description: 'Paginated list of transactions' })
     async findAll(
-        @Param('farmId') farmId: string,
         @Query() filterDto: TransactionFilterDto,
         @CurrentUser() user: User,
     ) {
+        const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
         await this.farmsService.checkOwnership(farmId, user.id);
         return this.financialService.findAll(farmId, filterDto);
     }
 
     @Get('overview')
     @ApiOperation({ summary: 'Get financial overview (income, expenses, profit/loss)' })
-    @ApiParam({ name: 'farmId', description: 'Farm UUID' })
     @ApiQuery({ name: 'startDate', required: false, description: 'Start date (YYYY-MM-DD)' })
     @ApiQuery({ name: 'endDate', required: false, description: 'End date (YYYY-MM-DD)' })
     @ApiResponse({ status: 200, description: 'Financial overview' })
     async getOverview(
-        @Param('farmId') farmId: string,
         @Query('startDate') startDate: string | undefined,
         @Query('endDate') endDate: string | undefined,
         @CurrentUser() user: User,
     ) {
+        const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
         await this.farmsService.checkOwnership(farmId, user.id);
 
         if (!startDate || !endDate) {
@@ -89,16 +86,15 @@ export class FinancialController {
 
     @Get('expense-breakdown')
     @ApiOperation({ summary: 'Get expense breakdown by category' })
-    @ApiParam({ name: 'farmId', description: 'Farm UUID' })
     @ApiQuery({ name: 'startDate', required: false, description: 'Start date (YYYY-MM-DD)' })
     @ApiQuery({ name: 'endDate', required: false, description: 'End date (YYYY-MM-DD)' })
     @ApiResponse({ status: 200, description: 'Expense breakdown by category' })
     async getExpenseBreakdown(
-        @Param('farmId') farmId: string,
         @Query('startDate') startDate: string | undefined,
         @Query('endDate') endDate: string | undefined,
         @CurrentUser() user: User,
     ) {
+        const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
         await this.farmsService.checkOwnership(farmId, user.id);
 
         const now = new Date();
@@ -110,43 +106,40 @@ export class FinancialController {
 
     @Get('transactions/:transactionId')
     @ApiOperation({ summary: 'Get a single transaction' })
-    @ApiParam({ name: 'farmId', description: 'Farm UUID' })
     @ApiParam({ name: 'transactionId', description: 'Transaction UUID' })
     @ApiResponse({ status: 200, description: 'Transaction details' })
     async findOne(
-        @Param('farmId') farmId: string,
         @Param('transactionId') transactionId: string,
         @CurrentUser() user: User,
     ) {
+        const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
         await this.farmsService.checkOwnership(farmId, user.id);
         return this.financialService.findOne(farmId, transactionId);
     }
 
     @Patch('transactions/:transactionId')
     @ApiOperation({ summary: 'Update a transaction' })
-    @ApiParam({ name: 'farmId', description: 'Farm UUID' })
     @ApiParam({ name: 'transactionId', description: 'Transaction UUID' })
     @ApiResponse({ status: 200, description: 'Transaction updated' })
     async update(
-        @Param('farmId') farmId: string,
         @Param('transactionId') transactionId: string,
         @Body() updateDto: Partial<CreateTransactionDto>,
         @CurrentUser() user: User,
     ) {
+        const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
         await this.farmsService.checkOwnership(farmId, user.id);
         return this.financialService.update(farmId, transactionId, updateDto);
     }
 
     @Delete('transactions/:transactionId')
     @ApiOperation({ summary: 'Delete a transaction' })
-    @ApiParam({ name: 'farmId', description: 'Farm UUID' })
     @ApiParam({ name: 'transactionId', description: 'Transaction UUID' })
     @ApiResponse({ status: 200, description: 'Transaction deleted' })
     async remove(
-        @Param('farmId') farmId: string,
         @Param('transactionId') transactionId: string,
         @CurrentUser() user: User,
     ) {
+        const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
         await this.farmsService.checkOwnership(farmId, user.id);
         await this.financialService.remove(farmId, transactionId);
         return { message: 'Transaction deleted successfully' };

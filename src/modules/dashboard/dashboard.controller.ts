@@ -21,7 +21,7 @@ import { User } from '../../entities/user.entity';
 
 @ApiTags('Dashboard')
 @ApiBearerAuth('JWT-auth')
-@Controller('api/v1/farms/:farmId/dashboard')
+@Controller('api/v1/dashboard')
 @UseGuards(JwtAuthGuard)
 export class DashboardController {
     constructor(
@@ -33,13 +33,11 @@ export class DashboardController {
 
     @Get('summary')
     @ApiOperation({ summary: 'Get dashboard summary with aggregated metrics' })
-    @ApiParam({ name: 'farmId', description: 'Farm UUID' })
     @ApiResponse({ status: 200, description: 'Dashboard summary data' })
     async getDashboardSummary(
-        @Param('farmId') farmId: string,
         @CurrentUser() user: User,
     ) {
-        await this.farmsService.checkMembership(farmId, user.id);
+        const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
 
         const [stats, todayMilk, yesterdayMilk, healthBreedingOverview] = await Promise.all([
             this.cowsService.getStats(farmId),
@@ -60,13 +58,11 @@ export class DashboardController {
 
     @Get('alerts')
     @ApiOperation({ summary: 'Get critical alerts for the farm' })
-    @ApiParam({ name: 'farmId', description: 'Farm UUID' })
     @ApiResponse({ status: 200, description: 'List of critical alerts' })
     async getAlerts(
-        @Param('farmId') farmId: string,
         @CurrentUser() user: User,
     ) {
-        await this.farmsService.checkMembership(farmId, user.id);
+        const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
 
         const tasks = await this.cowEventsService.getHealthBreedingTasks(farmId);
 
