@@ -5,14 +5,17 @@ import {
     BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, IsNull } from 'typeorm';
+
 import { MilkRecord } from '../../entities/milk-record.entity';
 import { Cow } from '../../entities/cow.entity';
 import {
     CreateMilkRecordDto,
     BulkMilkRecordDto,
+    UpdateMilkRecordDto,
     MilkRecordFilterDto,
 } from '../../dto/milk-record';
+
 import { getPagination, createPaginatedResult, PaginatedResult } from '../../common/utils/pagination.utils';
 import { isFutureDate, formatDate, startOfMonth, endOfMonth } from '../../common/utils/date.utils';
 
@@ -34,42 +37,70 @@ export class MilkRecordsService {
             throw new BadRequestException('Record date cannot be in the future');
         }
 
-        // Verify cow exists and belongs to farm
-        const cow = await this.cowRepository.findOne({
-            where: { id: createDto.cowId, farmId },
-        });
+        if (createDto.cowId) {
+            // Verify cow exists and belongs to farm
+            const cow = await this.cowRepository.findOne({
+                where: { id: createDto.cowId, farmId },
+            });
 
-        if (!cow) {
-            throw new NotFoundException('Cow not found in this farm');
-        }
+            if (!cow) {
+                throw new NotFoundException('Cow not found in this farm');
+            }
 
-        if (cow.gender !== 'female') {
-            throw new BadRequestException('Only female cows can have milk records');
-        }
+            if (cow.gender !== 'female') {
+                throw new BadRequestException('Only female cows can have milk records');
+            }
 
-        // Check for duplicate record
-        const existing = await this.milkRecordRepository.findOne({
-            where: {
-                cowId: createDto.cowId,
-                date: new Date(createDto.date),
-                milkingTime: createDto.milkingTime,
-            },
-        });
+            // Check for duplicate individual record
+            const existing = await this.milkRecordRepository.findOne({
+                where: {
+                    cowId: createDto.cowId,
+                    date: new Date(createDto.date),
+                    milkingTime: createDto.milkingTime,
+                },
+            });
 
-        if (existing) {
-            throw new ConflictException(
-                `Milk record already exists for this cow on ${createDto.date} (${createDto.milkingTime})`,
-            );
+            if (existing) {
+                throw new ConflictException(
+                    `Milk record already exists for this cow on ${createDto.date} (${createDto.milkingTime})`,
+                );
+            }
+        } else {
+            // It's a bulk record
+            // Check for duplicate bulk record for the farm/date/time
+            const existingBulk = await this.milkRecordRepository.findOne({
+                where: {
+                    cowId: IsNull(),
+                    farmId,
+                    date: new Date(createDto.date),
+                    milkingTime: createDto.milkingTime,
+                },
+            });
+
+            if (existingBulk) {
+                throw new ConflictException(
+                    `Bulk milk record already exists for this farm on ${createDto.date} (${createDto.milkingTime})`,
+                );
+            }
         }
 
         const record = this.milkRecordRepository.create({
-            ...createDto,
+            cowId: createDto.cowId || null,
+            farmId,
             date: new Date(createDto.date),
+            milkingTime: createDto.milkingTime,
+            amount: createDto.amount,
+            isBulk: createDto.isBulk || !createDto.cowId,
+            pricePerLiter: createDto.pricePerLiter || null,
+            totalValue: createDto.pricePerLiter ? createDto.amount * createDto.pricePerLiter : null,
+            notes: createDto.notes || null,
             createdBy: userId,
         });
 
         return this.milkRecordRepository.save(record);
+
     }
+
 
     /**
      * Create bulk milk records
@@ -111,20 +142,48 @@ export class MilkRecordsService {
     }
 
     /**
-     * Get milk records with filters
+     * Update a milk record (useful for reconciliation)
+     */
+    async update(farmId: string, id: string, updateDto: UpdateMilkRecordDto): Promise<MilkRecord> {
+        const record = await this.milkRecordRepository.findOne({
+            where: { id, farmId },
+        });
+
+        if (!record) {
+            throw new NotFoundException('Milk record not found');
+        }
+
+        // Update fields
+        Object.assign(record, updateDto);
+
+        // Recalculate total value
+        // Use dairy price if available, else farm price
+        const price = record.dairyPricePerLiter || record.pricePerLiter;
+        const amount = record.dairyAmount || record.amount;
+
+        if (price && amount) {
+            record.totalValue = price * amount;
+        }
+
+        return this.milkRecordRepository.save(record);
+    }
+
+    /**
+     * Get all milk records with pagination and filters
      */
     async findAll(farmId: string, filterDto: MilkRecordFilterDto): Promise<PaginatedResult<MilkRecord>> {
         const { skip, take } = getPagination(filterDto);
 
         const queryBuilder = this.milkRecordRepository
             .createQueryBuilder('record')
-            .innerJoin('record.cow', 'cow')
+            .leftJoin('record.cow', 'cow')
             .addSelect(['cow.id', 'cow.tagId', 'cow.name'])
-            .where('cow.farmId = :farmId', { farmId });
+            .where('record.farmId = :farmId', { farmId });
 
         if (filterDto.cowId) {
             queryBuilder.andWhere('record.cowId = :cowId', { cowId: filterDto.cowId });
         }
+
 
         if (filterDto.startDate) {
             queryBuilder.andWhere('record.date >= :startDate', { startDate: filterDto.startDate });
@@ -170,11 +229,8 @@ export class MilkRecordsService {
     /**
      * Update a milk record
      */
-    async update(farmId: string, recordId: string, amount: number): Promise<MilkRecord> {
-        const record = await this.findOne(farmId, recordId);
-        record.amount = amount;
-        return this.milkRecordRepository.save(record);
-    }
+    // Method removed - functionality consolidated into update(farmId, id, updateDto)
+
 
     /**
      * Delete a milk record
@@ -192,14 +248,14 @@ export class MilkRecordsService {
 
         const result = await this.milkRecordRepository
             .createQueryBuilder('record')
-            .innerJoin('record.cow', 'cow')
             .select('SUM(record.amount)', 'total')
-            .where('cow.farmId = :farmId', { farmId })
+            .where('record.farmId = :farmId', { farmId })
             .andWhere('record.date = :today', { today })
             .getRawOne();
 
         return parseFloat(result?.total || '0');
     }
+
 
     /**
      * Get yesterday's total milk production
@@ -211,14 +267,14 @@ export class MilkRecordsService {
 
         const result = await this.milkRecordRepository
             .createQueryBuilder('record')
-            .innerJoin('record.cow', 'cow')
             .select('SUM(record.amount)', 'total')
-            .where('cow.farmId = :farmId', { farmId })
+            .where('record.farmId = :farmId', { farmId })
             .andWhere('record.date = :yesterday', { yesterday: yesterdayStr })
             .getRawOne();
 
         return parseFloat(result?.total || '0');
     }
+
 
     /**
      * Get total milk production for a period
@@ -226,15 +282,15 @@ export class MilkRecordsService {
     async getPeriodTotal(farmId: string, startDate: string, endDate: string): Promise<number> {
         const result = await this.milkRecordRepository
             .createQueryBuilder('record')
-            .innerJoin('record.cow', 'cow')
             .select('SUM(record.amount)', 'total')
-            .where('cow.farmId = :farmId', { farmId })
+            .where('record.farmId = :farmId', { farmId })
             .andWhere('record.date >= :startDate', { startDate })
             .andWhere('record.date <= :endDate', { endDate })
             .getRawOne();
 
         return parseFloat(result?.total || '0');
     }
+
 
     /**
      * Get top producing cows for a period
@@ -329,17 +385,18 @@ export class MilkRecordsService {
         const start = startDate ? new Date(startDate) : new Date(end.getFullYear(), end.getMonth() - 5, 1);
 
         const records = await this.milkRecordRepository
+
             .createQueryBuilder('record')
-            .innerJoin('record.cow', 'cow')
             .select("TO_CHAR(record.date, 'Mon YYYY')", 'month')
             .addSelect('SUM(record.amount)', 'totalMilk')
-            .where('cow.farmId = :farmId', { farmId })
+            .where('record.farmId = :farmId', { farmId })
             .andWhere('record.date >= :startDate', { startDate: start })
             .andWhere('record.date <= :endDate', { endDate: end })
             .groupBy("TO_CHAR(record.date, 'Mon YYYY')")
             .addGroupBy("TO_CHAR(record.date, 'YYYY-MM')")
             .orderBy("TO_CHAR(record.date, 'YYYY-MM')", 'ASC')
             .getRawMany();
+
 
         return records.map(r => ({
             month: r.month,

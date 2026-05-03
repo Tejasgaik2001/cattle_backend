@@ -6,3 +6,6 @@ export * from './cow-events';
 export * from './milk-records';
 export * from './financial';
 export * from './dashboard';
+export * from './people';
+export * from './loans';
+

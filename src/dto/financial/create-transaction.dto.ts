@@ -17,9 +17,13 @@ const EXPENSE_CATEGORIES = [
     'Labor',
     'Utilities',
     'Maintenance / Miscellaneous',
+    'Medical',
+    'Infrastructure',
+    'Other',
 ];
 
-const INCOME_CATEGORIES = ['Milk Sales', 'Cow Sales', 'Other Income'];
+const INCOME_CATEGORIES = ['Milk Sales', 'Cow Sales', 'Cow Dung Sales', 'Other Income'];
+
 
 const ALL_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES];
 
@@ -63,7 +67,7 @@ export class CreateTransactionDto {
 
     @ApiPropertyOptional({
         example: 'Monthly cattle feed supply',
-        description: 'Description of the transaction',
+        description: 'Description / note for the transaction',
     })
     @IsOptional()
     @IsString()
@@ -76,4 +80,12 @@ export class CreateTransactionDto {
     @IsOptional()
     @IsUUID('4', { message: 'Cow ID must be a valid UUID' })
     cowId?: string;
+
+    @ApiPropertyOptional({
+        example: 'uuid-of-person',
+        description: 'UUID of the person who paid (for reimbursement tracking)',
+    })
+    @IsOptional()
+    @IsUUID('4', { message: 'Paid By ID must be a valid UUID' })
+    paidById?: string;
 }

@@ -5,17 +5,20 @@ import {
     IsIn,
     IsUUID,
     Min,
+    IsOptional,
+    IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateMilkRecordDto {
-    @ApiProperty({
+    @ApiPropertyOptional({
         example: 'uuid-of-cow',
-        description: 'UUID of the cow',
+        description: 'UUID of the cow. If null, treated as a bulk/collective record.',
     })
+    @IsOptional()
     @IsUUID('4', { message: 'Cow ID must be a valid UUID' })
-    cowId: string;
+    cowId?: string;
 
     @ApiProperty({
         example: '2024-01-20',
@@ -42,4 +45,28 @@ export class CreateMilkRecordDto {
     @Min(0, { message: 'Amount cannot be negative' })
     @Type(() => Number)
     amount: number;
+
+    @ApiPropertyOptional({
+        example: true,
+        description: 'Whether this is a bulk/collective entry for multiple cows',
+    })
+    @IsOptional()
+    @IsBoolean()
+    isBulk?: boolean;
+
+    @ApiPropertyOptional({
+        example: 45.0,
+        description: 'Price per liter in local currency',
+    })
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    @Type(() => Number)
+    pricePerLiter?: number;
+
+    @IsOptional()
+    @IsString()
+    notes?: string;
 }
+
+

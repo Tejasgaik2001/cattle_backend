@@ -33,28 +33,21 @@ export class FinancialController {
     constructor(
         private readonly financialService: FinancialService,
         private readonly farmsService: FarmsService,
-    ) { }
+    ) {}
 
     @Post('transactions')
-    @ApiOperation({ summary: 'Create a financial transaction (owner only)' })
+    @ApiOperation({ summary: 'Create a financial transaction' })
     @ApiResponse({ status: 201, description: 'Transaction created' })
-    @ApiResponse({ status: 403, description: 'Only owners can manage finances' })
-    async create(
-        @Body() createDto: CreateTransactionDto,
-        @CurrentUser() user: User,
-    ) {
+    async create(@Body() createDto: CreateTransactionDto, @CurrentUser() user: User) {
         const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
         await this.farmsService.checkOwnership(farmId, user.id);
         return this.financialService.create(farmId, createDto, user.id);
     }
 
     @Get('transactions')
-    @ApiOperation({ summary: 'Get transactions with filters (owner only)' })
+    @ApiOperation({ summary: 'Get transactions with filters' })
     @ApiResponse({ status: 200, description: 'Paginated list of transactions' })
-    async findAll(
-        @Query() filterDto: TransactionFilterDto,
-        @CurrentUser() user: User,
-    ) {
+    async findAll(@Query() filterDto: TransactionFilterDto, @CurrentUser() user: User) {
         const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
         await this.farmsService.checkOwnership(farmId, user.id);
         return this.financialService.findAll(farmId, filterDto);
@@ -62,9 +55,8 @@ export class FinancialController {
 
     @Get('overview')
     @ApiOperation({ summary: 'Get financial overview (income, expenses, profit/loss)' })
-    @ApiQuery({ name: 'startDate', required: false, description: 'Start date (YYYY-MM-DD)' })
-    @ApiQuery({ name: 'endDate', required: false, description: 'End date (YYYY-MM-DD)' })
-    @ApiResponse({ status: 200, description: 'Financial overview' })
+    @ApiQuery({ name: 'startDate', required: false })
+    @ApiQuery({ name: 'endDate', required: false })
     async getOverview(
         @Query('startDate') startDate: string | undefined,
         @Query('endDate') endDate: string | undefined,
@@ -76,19 +68,14 @@ export class FinancialController {
         if (!startDate || !endDate) {
             return this.financialService.getCurrentMonthOverview(farmId);
         }
-
         const overview = await this.financialService.getOverview(farmId, startDate, endDate);
-        return {
-            ...overview,
-            period: `${startDate} to ${endDate}`,
-        };
+        return { ...overview, period: `${startDate} to ${endDate}` };
     }
 
     @Get('expense-breakdown')
     @ApiOperation({ summary: 'Get expense breakdown by category' })
-    @ApiQuery({ name: 'startDate', required: false, description: 'Start date (YYYY-MM-DD)' })
-    @ApiQuery({ name: 'endDate', required: false, description: 'End date (YYYY-MM-DD)' })
-    @ApiResponse({ status: 200, description: 'Expense breakdown by category' })
+    @ApiQuery({ name: 'startDate', required: false })
+    @ApiQuery({ name: 'endDate', required: false })
     async getExpenseBreakdown(
         @Query('startDate') startDate: string | undefined,
         @Query('endDate') endDate: string | undefined,
@@ -104,14 +91,42 @@ export class FinancialController {
         return this.financialService.getExpenseBreakdown(farmId, start, end);
     }
 
+    @Get('summary/monthly')
+    @ApiOperation({ summary: 'Get full monthly summary with category breakdown and people spending' })
+    @ApiQuery({ name: 'year', required: false, description: 'Year (e.g. 2025)' })
+    @ApiQuery({ name: 'month', required: false, description: 'Month index 0-11 (e.g. 0=Jan)' })
+    async getMonthlySummary(
+        @Query('year') year: string | undefined,
+        @Query('month') month: string | undefined,
+        @CurrentUser() user: User,
+    ) {
+        const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
+        await this.farmsService.checkOwnership(farmId, user.id);
+        return this.financialService.getMonthlySummary(
+            farmId,
+            year ? parseInt(year) : undefined,
+            month !== undefined ? parseInt(month) : undefined,
+        );
+    }
+
+    @Get('summary/today')
+    @ApiOperation({ summary: "Get today's income and expense totals" })
+    async getTodaySummary(@CurrentUser() user: User) {
+        const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
+        return this.financialService.getTodaySummary(farmId);
+    }
+
+    @Get('summary/trend')
+    @ApiOperation({ summary: 'Get last 7 days income/expense trend' })
+    async getLast7DaysTrend(@CurrentUser() user: User) {
+        const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
+        return this.financialService.getLast7DaysTrend(farmId);
+    }
+
     @Get('transactions/:transactionId')
     @ApiOperation({ summary: 'Get a single transaction' })
     @ApiParam({ name: 'transactionId', description: 'Transaction UUID' })
-    @ApiResponse({ status: 200, description: 'Transaction details' })
-    async findOne(
-        @Param('transactionId') transactionId: string,
-        @CurrentUser() user: User,
-    ) {
+    async findOne(@Param('transactionId') transactionId: string, @CurrentUser() user: User) {
         const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
         await this.farmsService.checkOwnership(farmId, user.id);
         return this.financialService.findOne(farmId, transactionId);
@@ -120,7 +135,6 @@ export class FinancialController {
     @Patch('transactions/:transactionId')
     @ApiOperation({ summary: 'Update a transaction' })
     @ApiParam({ name: 'transactionId', description: 'Transaction UUID' })
-    @ApiResponse({ status: 200, description: 'Transaction updated' })
     async update(
         @Param('transactionId') transactionId: string,
         @Body() updateDto: Partial<CreateTransactionDto>,
@@ -134,11 +148,7 @@ export class FinancialController {
     @Delete('transactions/:transactionId')
     @ApiOperation({ summary: 'Delete a transaction' })
     @ApiParam({ name: 'transactionId', description: 'Transaction UUID' })
-    @ApiResponse({ status: 200, description: 'Transaction deleted' })
-    async remove(
-        @Param('transactionId') transactionId: string,
-        @CurrentUser() user: User,
-    ) {
+    async remove(@Param('transactionId') transactionId: string, @CurrentUser() user: User) {
         const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
         await this.farmsService.checkOwnership(farmId, user.id);
         await this.financialService.remove(farmId, transactionId);

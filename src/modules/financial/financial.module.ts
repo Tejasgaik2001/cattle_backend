@@ -4,6 +4,7 @@ import { FinancialController } from './financial.controller';
 import { FinancialService } from './financial.service';
 import { FinancialTransaction } from '../../entities/financial-transaction.entity';
 import { Cow } from '../../entities/cow.entity';
+import { Person } from '../../entities/person.entity';
 import { FarmMembership } from '../../entities/farm-membership.entity';
 import { FarmsModule } from '../farms/farms.module';
 import { MilkRecordsModule } from '../milk-records/milk-records.module';
@@ -12,7 +13,7 @@ import { ProductionFinanceService } from './production-finance.service';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([FinancialTransaction, Cow, FarmMembership]),
+        TypeOrmModule.forFeature([FinancialTransaction, Cow, FarmMembership, Person]),
         FarmsModule,
         MilkRecordsModule,
     ],
@@ -20,4 +21,4 @@ import { ProductionFinanceService } from './production-finance.service';
     providers: [FinancialService, ProductionFinanceService],
     exports: [FinancialService, ProductionFinanceService],
 })
-export class FinancialModule { }
+export class FinancialModule {}

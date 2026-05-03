@@ -11,6 +11,8 @@ import { Cow } from './cow.entity';
 import { FinancialTransaction } from './financial-transaction.entity';
 import { User } from './user.entity';
 import { FarmInvitation } from './farm-invitation.entity';
+import { Loan } from './loan.entity';
+import { Person } from './person.entity';
 
 /**
  * Represents the entire farming operation.
@@ -35,6 +37,12 @@ export class Farm extends BaseEntity {
 
     @OneToMany(() => FinancialTransaction, (transaction) => transaction.farm)
     financialTransactions: FinancialTransaction[];
+
+    @OneToMany(() => Loan, (loan) => loan.farm)
+    loans: Loan[];
+
+    @OneToMany(() => Person, (person) => person.farm)
+    people: Person[];
 
     @OneToMany(() => FarmInvitation, (invitation) => invitation.farm)
     invitations: FarmInvitation[];

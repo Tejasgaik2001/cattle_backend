@@ -21,8 +21,10 @@ import { FarmsService } from '../farms/farms.service';
 import {
     CreateMilkRecordDto,
     BulkMilkRecordDto,
+    UpdateMilkRecordDto,
     MilkRecordFilterDto,
 } from '../../dto/milk-record';
+
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators';
 import { User } from '../../entities/user.entity';
@@ -117,17 +119,18 @@ export class MilkRecordsController {
     }
 
     @Patch(':recordId')
-    @ApiOperation({ summary: 'Update a milk record amount' })
+    @ApiOperation({ summary: 'Update a milk record (reconciliation)' })
     @ApiParam({ name: 'recordId', description: 'Record UUID' })
     @ApiResponse({ status: 200, description: 'Record updated' })
     async update(
         @Param('recordId') recordId: string,
-        @Body('amount') amount: number,
+        @Body() updateDto: UpdateMilkRecordDto,
         @CurrentUser() user: User,
     ) {
         const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
-        return this.milkRecordsService.update(farmId, recordId, amount);
+        return this.milkRecordsService.update(farmId, recordId, updateDto);
     }
+
 
     @Delete(':recordId')
     @ApiOperation({ summary: 'Delete a milk record' })

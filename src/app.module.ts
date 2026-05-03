@@ -17,6 +17,9 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { SeedModule } from './modules/seed/seed.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { HealthBreedingModule } from './modules/health-breeding/health-breeding.module';
+import { PeopleModule } from './modules/people/people.module';
+import { LoansModule } from './modules/loans/loans.module';
+
 
 // Controllers (for invitations public route)
 import { InvitationsController } from './modules/farms/farms.controller';
@@ -58,6 +61,9 @@ import { InvitationsController } from './modules/farms/farms.controller';
     SeedModule,
     ReportsModule,
     HealthBreedingModule,
+    PeopleModule,
+    LoansModule,
+
   ],
   controllers: [InvitationsController],
 })
