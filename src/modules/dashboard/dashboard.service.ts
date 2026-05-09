@@ -2,8 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cow } from '../../entities/cow.entity';
-import { CowEvent } from '../../entities/cow-event.entity';
 import { MilkRecord } from '../../entities/milk-record.entity';
+import { MemberDue } from '../../entities/member-due.entity';
+import { CowEvent } from '../../entities/cow-event.entity';
 import { formatDate } from '../../common/utils/date.utils';
 
 export interface DashboardSummary {
@@ -15,6 +16,7 @@ export interface DashboardSummary {
     todayMilkTotal: number;
     yesterdayMilkTotal: number;
     milkChangePercent: number;
+    pendingReimbursementTotal: number;
 }
 
 @Injectable()
@@ -26,6 +28,8 @@ export class DashboardService {
         private cowEventRepository: Repository<CowEvent>,
         @InjectRepository(MilkRecord)
         private milkRecordRepository: Repository<MilkRecord>,
+        @InjectRepository(MemberDue)
+        private memberDueRepository: Repository<MemberDue>,
     ) { }
 
     /**
@@ -110,6 +114,17 @@ export class DashboardService {
             ? Math.round(((todayMilkTotal - yesterdayMilkTotal) / yesterdayMilkTotal) * 100 * 10) / 10
             : 0;
 
+        // Get pending reimbursements
+        const reimbursementResult = await this.memberDueRepository
+            .createQueryBuilder('r')
+            .innerJoin('r.person', 'person')
+            .select('SUM(r.amount)', 'total')
+            .where('person.farmId = :farmId', { farmId })
+            .andWhere('r.status = :status', { status: 'PENDING' })
+            .andWhere('r.type = :type', { type: 'BUSINESS_OWES' }) // Only what business owes count as reimbursements
+            .getRawOne();
+        const pendingReimbursementTotal = parseFloat(reimbursementResult?.total || '0');
+
         return {
             totalHerdSize,
             activeCount,
@@ -119,6 +134,7 @@ export class DashboardService {
             todayMilkTotal,
             yesterdayMilkTotal,
             milkChangePercent,
+            pendingReimbursementTotal,
         };
     }
 }

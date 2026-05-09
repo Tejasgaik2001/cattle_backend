@@ -212,7 +212,7 @@ export class CowEventsService {
             .where('cow.farmId = :farmId', { farmId })
             .andWhere('event.type = :type', { type: 'BREEDING' })
             .andWhere("event.metadata->>'result' = 'confirmed'")
-            .andWhere("event.metadata->>'expectedCalvingDate' >= :today", { today: today.toISOString().split('T')[0] })
+            .andWhere("(event.metadata->>'expectedCalvingDate' IS NULL OR event.metadata->>'expectedCalvingDate' >= :today)", { today: today.toISOString().split('T')[0] })
             .select('COUNT(DISTINCT event.cowId)', 'count')
             .getRawOne();
 

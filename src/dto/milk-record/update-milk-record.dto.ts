@@ -30,12 +30,35 @@ export class UpdateMilkRecordDto {
     @Type(() => Number)
     dairyAmount?: number | null;
 
-    @ApiPropertyOptional({ example: 47.0 })
     @IsOptional()
     @IsNumber()
     @Min(0)
     @Type(() => Number)
     dairyPricePerLiter?: number | null;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    @Type(() => Number)
+    fat?: number | null;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    @Type(() => Number)
+    snf?: number | null;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    @Type(() => Number)
+    dairyFat?: number | null;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    @Type(() => Number)
+    dairySnf?: number | null;
 
     @ApiPropertyOptional({ example: true })
     @IsOptional()

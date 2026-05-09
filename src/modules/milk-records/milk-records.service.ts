@@ -92,6 +92,8 @@ export class MilkRecordsService {
             amount: createDto.amount,
             isBulk: createDto.isBulk || !createDto.cowId,
             pricePerLiter: createDto.pricePerLiter || null,
+            fat: createDto.fat || null,
+            snf: createDto.snf || null,
             totalValue: createDto.pricePerLiter ? createDto.amount * createDto.pricePerLiter : null,
             notes: createDto.notes || null,
             createdBy: userId,
@@ -118,15 +120,23 @@ export class MilkRecordsService {
                     // Update existing record instead of failing
                     const existing = await this.milkRecordRepository.findOne({
                         where: {
-                            cowId: recordDto.cowId,
+                            cowId: recordDto.cowId ? recordDto.cowId : IsNull(),
+                            farmId,
                             date: new Date(recordDto.date),
                             milkingTime: recordDto.milkingTime,
                         },
                     });
                     if (existing) {
                         existing.amount = recordDto.amount;
+                        existing.pricePerLiter = recordDto.pricePerLiter || existing.pricePerLiter;
+                        existing.fat = recordDto.fat || existing.fat;
+                        existing.snf = recordDto.snf || existing.snf;
+                        existing.totalValue = existing.pricePerLiter ? existing.amount * existing.pricePerLiter : null;
+                        existing.notes = recordDto.notes || existing.notes;
                         const updated = await this.milkRecordRepository.save(existing);
                         savedRecords.push(updated);
+                    } else {
+                        errors.push(`Failed to update record for ${recordDto.cowId ? 'cow ' + recordDto.cowId : 'bulk'}: ${error.message}`);
                     }
                 } else {
                     errors.push(`Failed to save record for cow ${recordDto.cowId}: ${error.message}`);
@@ -277,9 +287,24 @@ export class MilkRecordsService {
 
 
     /**
+     * Get total milk production value for a period
+     */
+    async getPeriodValue(farmId: string, startDate: string | Date, endDate: string | Date): Promise<number> {
+        const result = await this.milkRecordRepository
+            .createQueryBuilder('record')
+            .select('SUM(record.totalValue)', 'total')
+            .where('record.farmId = :farmId', { farmId })
+            .andWhere('record.date >= :startDate', { startDate })
+            .andWhere('record.date <= :endDate', { endDate })
+            .getRawOne();
+
+        return parseFloat(result?.total || '0');
+    }
+
+    /**
      * Get total milk production for a period
      */
-    async getPeriodTotal(farmId: string, startDate: string, endDate: string): Promise<number> {
+    async getPeriodTotal(farmId: string, startDate: string | Date, endDate: string | Date): Promise<number> {
         const result = await this.milkRecordRepository
             .createQueryBuilder('record')
             .select('SUM(record.amount)', 'total')
@@ -377,15 +402,14 @@ export class MilkRecordsService {
      */
     async getMonthlyTrends(
         farmId: string,
-        startDate?: string,
-        endDate?: string,
+        startDate?: string | Date,
+        endDate?: string | Date,
     ): Promise<Array<{ month: string; totalMilk: number }>> {
         // Default to last 6 months if not provided
         const end = endDate ? new Date(endDate) : new Date();
         const start = startDate ? new Date(startDate) : new Date(end.getFullYear(), end.getMonth() - 5, 1);
 
         const records = await this.milkRecordRepository
-
             .createQueryBuilder('record')
             .select("TO_CHAR(record.date, 'Mon YYYY')", 'month')
             .addSelect('SUM(record.amount)', 'totalMilk')
@@ -401,6 +425,37 @@ export class MilkRecordsService {
         return records.map(r => ({
             month: r.month,
             totalMilk: parseFloat(r.totalMilk || '0'),
+        }));
+    }
+
+    /**
+     * Get monthly milk income trends for financials
+     */
+    async getMonthlyIncomeTrends(
+        farmId: string,
+        startDate?: string | Date,
+        endDate?: string | Date,
+    ): Promise<Array<{ month: string; yearMonth: string; totalIncome: number }>> {
+        const end = endDate ? new Date(endDate) : new Date();
+        const start = startDate ? new Date(startDate) : new Date(end.getFullYear(), end.getMonth() - 5, 1);
+
+        const records = await this.milkRecordRepository
+            .createQueryBuilder('record')
+            .select("TO_CHAR(record.date, 'Mon YYYY')", 'month')
+            .addSelect("TO_CHAR(record.date, 'YYYY-MM')", 'yearMonth')
+            .addSelect('SUM(record.totalValue)', 'totalIncome')
+            .where('record.farmId = :farmId', { farmId })
+            .andWhere('record.date >= :startDate', { startDate: start })
+            .andWhere('record.date <= :endDate', { endDate: end })
+            .groupBy("TO_CHAR(record.date, 'Mon YYYY')")
+            .addGroupBy("TO_CHAR(record.date, 'YYYY-MM')")
+            .orderBy("TO_CHAR(record.date, 'YYYY-MM')", 'ASC')
+            .getRawMany();
+
+        return records.map(r => ({
+            month: r.month,
+            yearMonth: r.yearMonth,
+            totalIncome: parseFloat(r.totalIncome || '0'),
         }));
     }
 }

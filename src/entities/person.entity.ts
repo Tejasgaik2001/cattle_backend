@@ -8,6 +8,8 @@ import {
 import { BaseEntity } from './base.entity';
 import { Farm } from './farm.entity';
 import { FinancialTransaction } from './financial-transaction.entity';
+import { MemberDue } from './member-due.entity';
+
 
 export type PersonRole = 'owner' | 'family' | 'worker';
 
@@ -35,4 +37,7 @@ export class Person extends BaseEntity {
 
     @OneToMany(() => FinancialTransaction, (tx) => tx.paidBy)
     transactions: FinancialTransaction[];
+
+    @OneToMany(() => MemberDue, (due) => due.person)
+    memberDues: MemberDue[];
 }

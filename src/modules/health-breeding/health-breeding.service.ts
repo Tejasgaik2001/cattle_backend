@@ -31,52 +31,61 @@ export class HealthBreedingService {
 
     async getOverview(farmId: string): Promise<HealthBreedingOverview> {
         const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(today.getDate() - 7);
+        const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
 
-        const UnderTreatmentCount = await this.eventRepository
+        // 1. Cows Under Treatment (Distinct count of cows with an active health event)
+        const underTreatmentResult = await this.eventRepository
             .createQueryBuilder('event')
             .innerJoin('event.cow', 'cow')
-            .where('cow.farm_id = :farmId', { farmId })
+            .where('cow.farmId = :farmId', { farmId })
             .andWhere('event.type = :type', { type: 'HEALTH' })
-            .andWhere("event.metadata->>'isUnderTreatment' = :isUnderTreatment", { isUnderTreatment: 'true' })
-            .select('DISTINCT event.cow_id')
-            .getCount();
+            .andWhere("event.metadata->>'isUnderTreatment' = 'true'")
+            .select('COUNT(DISTINCT event.cowId)', 'count')
+            .getRawOne();
 
-        const pregnantCount = await this.eventRepository
+        // 2. Pregnant Cows (Distinct count of cows confirmed pregnant and not yet calved)
+        const pregnantResult = await this.eventRepository
             .createQueryBuilder('event')
             .innerJoin('event.cow', 'cow')
-            .where('cow.farm_id = :farmId', { farmId })
+            .where('cow.farmId = :farmId', { farmId })
             .andWhere('event.type = :type', { type: 'BREEDING' })
-            .andWhere("event.metadata->>'result' = :result", { result: 'confirmed' })
-            .select('DISTINCT event.cow_id')
-            .getCount();
+            .andWhere("event.metadata->>'result' = 'confirmed'")
+            .andWhere("(event.metadata->>'expectedCalvingDate' IS NULL OR event.metadata->>'expectedCalvingDate' >= :today)", { today: todayStr })
+            .select('COUNT(DISTINCT event.cowId)', 'count')
+            .getRawOne();
 
-        const recentHealthIssues = await this.eventRepository
+        // 3. Health Issues Last 7 Days (Total count of health events in the last week)
+        const recentHealthIssuesResult = await this.eventRepository
             .createQueryBuilder('event')
             .innerJoin('event.cow', 'cow')
-            .where('cow.farm_id = :farmId', { farmId })
+            .where('cow.farmId = :farmId', { farmId })
             .andWhere('event.type = :type', { type: 'HEALTH' })
-            .andWhere('event.date >= :sevenDaysAgo', { sevenDaysAgo: sevenDaysAgo.toISOString().split('T')[0] })
-            .getCount();
+            .andWhere('event.date >= :sevenDaysAgo', { sevenDaysAgo: sevenDaysAgoStr })
+            .select('COUNT(*)', 'count')
+            .getRawOne();
 
-        const vaccinationsDueCount = await this.eventRepository
+        // 4. Vaccinations Due/Overdue (Distinct count of cows with a vaccination due within 7 days)
+        const vaccinationsDueResult = await this.eventRepository
             .createQueryBuilder('event')
             .innerJoin('event.cow', 'cow')
-            .where('cow.farm_id = :farmId', { farmId })
+            .where('cow.farmId = :farmId', { farmId })
+            .andWhere('cow.lifecycleStatus = :status', { status: 'active' })
             .andWhere('event.type = :type', { type: 'VACCINATION' })
             .andWhere("event.metadata->>'nextDueDate' IS NOT NULL")
             .andWhere("event.metadata->>'nextDueDate' <= :nextWeek", {
                 nextWeek: new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
             })
-            .select('DISTINCT event.cow_id')
-            .getCount();
+            .select('COUNT(DISTINCT event.cowId)', 'count')
+            .getRawOne();
 
         return {
-            cowsUnderTreatment: UnderTreatmentCount,
-            pregnantCows: pregnantCount,
-            healthIssuesLast7Days: recentHealthIssues,
-            vaccinationsDueOverdueCount: vaccinationsDueCount,
+            cowsUnderTreatment: parseInt(underTreatmentResult.count, 10) || 0,
+            pregnantCows: parseInt(pregnantResult.count, 10) || 0,
+            healthIssuesLast7Days: parseInt(recentHealthIssuesResult.count, 10) || 0,
+            vaccinationsDueOverdueCount: parseInt(vaccinationsDueResult.count, 10) || 0,
         };
     }
 
@@ -90,7 +99,7 @@ export class HealthBreedingService {
         const events = await this.eventRepository
             .createQueryBuilder('event')
             .innerJoinAndSelect('event.cow', 'cow')
-            .where('cow.farm_id = :farmId', { farmId })
+            .where('cow.farmId = :farmId', { farmId })
             .andWhere('event.type IN (:...types)', { types: ['VACCINATION', 'HEALTH', 'BREEDING'] })
             .orderBy('event.date', 'DESC')
             .getMany();
@@ -199,16 +208,18 @@ export class HealthBreedingService {
 
         const latestHealthEvents = await this.eventRepository
             .createQueryBuilder('event')
-            .where('event.cow_id IN (:...cowIds)', { cowIds })
+            .where('event.cowId IN (:...cowIds)', { cowIds })
             .andWhere('event.type = :type', { type: 'HEALTH' })
             .orderBy('event.date', 'DESC')
+            .addOrderBy('event.createdAt', 'DESC')
             .getMany();
 
         const latestBreedingEvents = await this.eventRepository
             .createQueryBuilder('event')
-            .where('event.cow_id IN (:...cowIds)', { cowIds })
+            .where('event.cowId IN (:...cowIds)', { cowIds })
             .andWhere('event.type = :type', { type: 'BREEDING' })
             .orderBy('event.date', 'DESC')
+            .addOrderBy('event.createdAt', 'DESC')
             .getMany();
 
         // Build maps: cowId -> latest event

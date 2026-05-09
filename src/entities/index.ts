@@ -10,3 +10,5 @@ export * from './financial-transaction.entity';
 export * from './person.entity';
 export * from './loan.entity';
 export * from './loan-payment.entity';
+export * from './member-due.entity';
+export * from './financial-category.entity';

@@ -54,15 +54,26 @@ export class CreateMilkRecordDto {
     @IsBoolean()
     isBulk?: boolean;
 
-    @ApiPropertyOptional({
-        example: 45.0,
-        description: 'Price per liter in local currency',
-    })
+    @ApiPropertyOptional({ example: 45.0 })
     @IsOptional()
     @IsNumber()
     @Min(0)
     @Type(() => Number)
     pricePerLiter?: number;
+
+    @ApiPropertyOptional({ example: 4.2 })
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    @Type(() => Number)
+    fat?: number;
+
+    @ApiPropertyOptional({ example: 8.5 })
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    @Type(() => Number)
+    snf?: number;
 
     @IsOptional()
     @IsString()

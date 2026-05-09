@@ -5,12 +5,13 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { FinancialTransaction } from '../../entities/financial-transaction.entity';
-import { Cow } from '../../entities/cow.entity';
-import { Person } from '../../entities/person.entity';
+import { FinancialTransaction, Cow, Person, MemberDueType, MilkRecord } from '../../entities';
 import { CreateTransactionDto, TransactionFilterDto } from '../../dto/financial';
 import { getPagination, createPaginatedResult, PaginatedResult } from '../../common/utils/pagination.utils';
 import { isFutureDate, formatDate, startOfMonth, endOfMonth } from '../../common/utils/date.utils';
+import { MemberDueService } from './member-due.service';
+import { MilkRecordsService } from '../milk-records/milk-records.service';
+
 
 @Injectable()
 export class FinancialService {
@@ -21,6 +22,8 @@ export class FinancialService {
         private cowRepository: Repository<Cow>,
         @InjectRepository(Person)
         private personRepository: Repository<Person>,
+        private memberDueService: MemberDueService,
+        private milkRecordsService: MilkRecordsService,
     ) {}
 
     /**
@@ -52,7 +55,20 @@ export class FinancialService {
             createdBy: userId,
         });
 
-        return this.transactionRepository.save(transaction);
+        const savedTransaction = await this.transactionRepository.save(transaction);
+
+        // If a person is involved (paid/received personally), create a member due entry
+        if (createDto.paidById) {
+            await this.memberDueService.create({
+                personId: createDto.paidById,
+                transactionId: savedTransaction.id,
+                amount: Number(savedTransaction.amount),
+                type: savedTransaction.type === 'expense' ? MemberDueType.BUSINESS_OWES : MemberDueType.OWES_BUSINESS,
+                note: `Automatically created from ${savedTransaction.category} ${savedTransaction.type}`
+            });
+        }
+
+        return savedTransaction;
     }
 
     /**
@@ -155,7 +171,10 @@ export class FinancialService {
             .andWhere('transaction.date <= :endDate', { endDate })
             .getRawOne();
 
-        const totalIncome = parseFloat(incomeResult?.total || '0');
+        // Include milk income
+        const milkIncome = await this.milkRecordsService.getPeriodValue(farmId, startDate, endDate);
+        
+        const totalIncome = parseFloat(incomeResult?.total || '0') + milkIncome;
         const totalExpenses = parseFloat(expenseResult?.total || '0');
 
         return { totalIncome, totalExpenses, netProfitLoss: totalIncome - totalExpenses };
@@ -213,10 +232,24 @@ export class FinancialService {
             .orderBy('amount', 'DESC')
             .getRawMany();
 
-        return results.map((r) => ({
+        const formattedResults = results.map((r) => ({
             category: r.category,
             amount: parseFloat(r.amount || '0'),
         }));
+
+        // Add Milk Production income
+        const milkIncome = await this.milkRecordsService.getPeriodValue(farmId, formatDate(start), formatDate(end));
+        
+        if (milkIncome > 0) {
+            formattedResults.push({
+                category: 'Milk Production',
+                amount: milkIncome
+            });
+            // Sort again after adding milk
+            formattedResults.sort((a, b) => b.amount - a.amount);
+        }
+
+        return formattedResults;
     }
 
     /**
@@ -245,8 +278,8 @@ export class FinancialService {
     }
 
     /**
-     * CRITICAL: Full monthly summary with category breakdown, income breakdown,
-     * people spending, and 7-day trend. Used by the dedicated Financials page.
+     * Full monthly summary with category breakdown, income breakdown,
+     * and member dues.
      */
     async getMonthlySummary(farmId: string, year?: number, month?: number): Promise<{
         period: string;
@@ -256,7 +289,7 @@ export class FinancialService {
         expenseByCategory: Array<{ category: string; amount: number; percentage: number }>;
         incomeByCategory: Array<{ category: string; amount: number; percentage: number }>;
         recentTransactions: FinancialTransaction[];
-        spendingByPerson: Array<{ personId: string; name: string; role: string; amount: number; pendingReimbursement: boolean }>;
+        spendingByPerson: any[];
     }> {
         const now = new Date();
         const targetYear = year ?? now.getFullYear();
@@ -273,7 +306,7 @@ export class FinancialService {
         ];
         const period = `${monthNames[targetMonth]} ${targetYear}`;
 
-        const [overview, expenseBreakdown, incomeBreakdown, recentTransactions, spendingRaw] =
+        const [overview, expenseBreakdown, incomeBreakdown, recentTransactions, spendingByPerson] =
             await Promise.all([
                 this.getOverview(farmId, startDate, endDate),
                 this.getExpenseBreakdown(farmId, startDate, endDate),
@@ -284,37 +317,8 @@ export class FinancialService {
                     order: { date: 'DESC', createdAt: 'DESC' },
                     take: 10,
                 }),
-                // spending grouped by person
-                this.transactionRepository
-                    .createQueryBuilder('tx')
-                    .select('tx.paidById', 'personId')
-                    .addSelect('SUM(tx.amount)', 'amount')
-                    .where('tx.farmId = :farmId', { farmId })
-                    .andWhere('tx.type = :type', { type: 'expense' })
-                    .andWhere('tx.paidById IS NOT NULL')
-                    .andWhere('tx.date >= :startDate', { startDate })
-                    .andWhere('tx.date <= :endDate', { endDate })
-                    .groupBy('tx.paidById')
-                    .getRawMany(),
+                this.memberDueService.getPendingSummaryByPerson(farmId),
             ]);
-
-        // Enrich spending with person details
-        const personIds: string[] = spendingRaw.map((s) => s.personId);
-        let people: Person[] = [];
-        if (personIds.length > 0) {
-            people = await this.personRepository.findByIds(personIds);
-        }
-
-        const spendingByPerson = spendingRaw.map((s) => {
-            const person = people.find((p) => p.id === s.personId);
-            return {
-                personId: s.personId,
-                name: person?.name ?? 'Unknown',
-                role: person?.role ?? 'worker',
-                amount: parseFloat(s.amount || '0'),
-                pendingReimbursement: person?.role !== 'owner',
-            };
-        });
 
         const totalExp = overview.totalExpenses;
         const totalInc = overview.totalIncome;
@@ -379,7 +383,7 @@ export class FinancialService {
             const d = new Date();
             d.setDate(d.getDate() - i);
             const dateStr = formatDate(d);
-            const [inc, exp] = await Promise.all([
+            const [inc, exp, milkInc] = await Promise.all([
                 this.transactionRepository
                     .createQueryBuilder('tx')
                     .select('COALESCE(SUM(tx.amount), 0)', 'total')
@@ -394,10 +398,11 @@ export class FinancialService {
                     .andWhere('tx.type = :type', { type: 'expense' })
                     .andWhere('tx.date = :date', { date: dateStr })
                     .getRawOne(),
+                this.milkRecordsService.getPeriodValue(farmId, dateStr, dateStr),
             ]);
             days.push({
                 date: dateStr,
-                income: parseFloat(inc?.total || '0'),
+                income: parseFloat(inc?.total || '0') + milkInc,
                 expense: parseFloat(exp?.total || '0'),
             });
         }
@@ -415,7 +420,7 @@ export class FinancialService {
         const end = endDate ? new Date(endDate) : new Date();
         const start = startDate ? new Date(startDate) : new Date(end.getFullYear(), end.getMonth() - 5, 1);
 
-        const records = await this.transactionRepository
+        const txRecords = await this.transactionRepository
             .createQueryBuilder('tx')
             .select("TO_CHAR(tx.date, 'Mon YYYY')", 'month')
             .addSelect("TO_CHAR(tx.date, 'YYYY-MM')", 'yearMonth')
@@ -435,11 +440,46 @@ export class FinancialService {
             .orderBy("TO_CHAR(tx.date, 'YYYY-MM')", 'ASC')
             .getRawMany();
 
-        return records.map((r) => ({
-            month: r.month,
-            income: parseFloat(r.income || '0'),
-            expenses: parseFloat(r.expenses || '0'),
-            profit: parseFloat(r.income || '0') - parseFloat(r.expenses || '0'),
-        }));
+        // Get milk income monthly trends
+        const milkMonthly = await this.milkRecordsService.getMonthlyIncomeTrends(farmId, start, end);
+
+        // Map milk income for easy lookup
+        const milkMap = new Map<string, number>();
+        milkMonthly.forEach((m) => {
+            milkMap.set(m.yearMonth, m.totalIncome);
+        });
+
+        // Merge records
+        const results = txRecords.map((r) => {
+            const milkIncome = milkMap.get(r.yearMonth) || 0;
+            const totalInc = parseFloat(r.income || '0') + milkIncome;
+            const totalExp = parseFloat(r.expenses || '0');
+            return {
+                month: r.month,
+                income: totalInc,
+                expenses: totalExp,
+                profit: totalInc - totalExp,
+                yearMonth: r.yearMonth // temporarily keep for merging
+            };
+        });
+
+        // Add any months that have milk income but no transactions
+        milkMonthly.forEach(m => {
+            if (!results.find(r => (r as any).yearMonth === m.yearMonth)) {
+                const milkIncome = m.totalIncome;
+                results.push({
+                    month: m.month,
+                    income: milkIncome,
+                    expenses: 0,
+                    profit: milkIncome,
+                    yearMonth: m.yearMonth
+                } as any);
+            }
+        });
+
+        // Final sort and cleanup
+        return results
+            .sort((a, b) => (a as any).yearMonth.localeCompare((b as any).yearMonth))
+            .map(({ yearMonth, ...rest }) => rest);
     }
 }

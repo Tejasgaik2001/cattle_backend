@@ -52,6 +52,18 @@ export class MilkRecord extends BaseEntity {
     @Column({ name: 'dairy_price_per_liter', type: 'decimal', precision: 10, scale: 2, nullable: true })
     dairyPricePerLiter: number | null;
 
+    @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+    fat: number | null;
+
+    @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+    snf: number | null;
+
+    @Column({ name: 'dairy_fat', type: 'decimal', precision: 5, scale: 2, nullable: true })
+    dairyFat: number | null;
+
+    @Column({ name: 'dairy_snf', type: 'decimal', precision: 5, scale: 2, nullable: true })
+    dairySnf: number | null;
+
     @Column({ name: 'is_reconciled', type: 'boolean', default: false })
     isReconciled: boolean;
 

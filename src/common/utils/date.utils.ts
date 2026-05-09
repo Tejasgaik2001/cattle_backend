@@ -16,10 +16,9 @@ export function parseDate(dateString: string): Date {
  * Checks if a date is in the future
  */
 export function isFutureDate(date: Date | string): boolean {
-    const checkDate = typeof date === 'string' ? parseDate(date) : date;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return checkDate > today;
+    const checkDateStr = typeof date === 'string' ? date : formatDate(date);
+    const todayStr = formatDate(new Date());
+    return checkDateStr > todayStr;
 }
 
 /**
