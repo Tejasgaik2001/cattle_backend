@@ -24,6 +24,16 @@ import { LoansModule } from './modules/loans/loans.module';
 // Controllers (for invitations public route)
 import { InvitationsController } from './modules/farms/farms.controller';
 
+import { Controller, Get } from '@nestjs/common';
+
+@Controller('health')
+export class HealthController {
+  @Get()
+  check() {
+    return { status: 'ok', timestamp: new Date().toISOString() };
+  }
+}
+
 @Module({
   imports: [
     // Configuration
@@ -65,6 +75,6 @@ import { InvitationsController } from './modules/farms/farms.controller';
     LoansModule,
 
   ],
-  controllers: [InvitationsController],
+  controllers: [InvitationsController, HealthController],
 })
 export class AppModule { }
