@@ -5,7 +5,7 @@ import {
     Res,
     UseGuards,
 } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import {
     ApiTags,
     ApiOperation,
@@ -102,7 +102,7 @@ export class ReportsController {
             'Total Income': `₹ ${report.summary.totalIncome.toLocaleString('en-IN')}`,
         };
 
-        await this.handleExport(res, 'Milk_Production_Report', query.format, columns, data, summary, farmId, user.id, 'milk-production', query);
+        await this.handleExport(res, 'Milk_Production_Report', query.format || ExportFormat.EXCEL, columns, data, summary, farmId, user.id, 'milk-production', query);
     }
 
     @Get('export/financial')
@@ -138,7 +138,7 @@ export class ReportsController {
             'Margin': `${report.summary.margin.toFixed(2)} %`,
         };
 
-        await this.handleExport(res, 'Financial_Report', query.format, columns, data, summary, farmId, user.id, 'financial', query);
+        await this.handleExport(res, 'Financial_Report', query.format || ExportFormat.EXCEL, columns, data, summary, farmId, user.id, 'financial', query);
     }
 
     @Get('export/health')
@@ -169,11 +169,11 @@ export class ReportsController {
 
         const summary = {
             'Total Events': report.summary.totalEvents,
-            'Vaccinations': report.summary.VACCINATION || 0,
-            'Treatments': report.summary.MEDICAL_TREATMENT || 0,
+            'Vaccinations': (report.summary as any).VACCINATION || 0,
+            'Treatments': (report.summary as any).MEDICAL_TREATMENT || 0,
         };
 
-        await this.handleExport(res, 'Health_Report', query.format, columns, data, summary, farmId, user.id, 'health', query);
+        await this.handleExport(res, 'Health_Report', query.format || ExportFormat.EXCEL, columns, data, summary, farmId, user.id, 'health', query);
     }
 
     @Get('history')

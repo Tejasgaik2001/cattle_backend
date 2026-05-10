@@ -54,7 +54,7 @@ export class ExportService {
             });
         }
 
-        const buffer = await workbook.xlsx.writeBuffer() as Buffer;
+        const buffer = Buffer.from(await workbook.xlsx.writeBuffer() as ArrayBuffer);
         return buffer;
     }
 
