@@ -36,13 +36,22 @@ async function seed() {
 
     // Clear existing data
     console.log('🗑️  Clearing existing data...');
-    await dataSource.getRepository(MilkRecord).delete({});
-    await dataSource.getRepository(FinancialTransaction).delete({});
-    await dataSource.getRepository(CowEvent).delete({});
-    await dataSource.getRepository(Cow).delete({});
-    await dataSource.getRepository(FarmMembership).delete({});
-    await dataSource.getRepository(Farm).delete({});
-    await dataSource.getRepository(User).delete({});
+    const tables = [
+        'milk_records',
+        'financial_transactions',
+        'cow_events',
+        'cows',
+        'farm_memberships',
+        'farms',
+        'users',
+        'loans',
+        'loan_payments',
+        'member_dues',
+        'people',
+        'farm_invitations',
+        'report_downloads'
+    ];
+    await dataSource.query(`TRUNCATE TABLE ${tables.map(t => `"${t}"`).join(', ')} CASCADE`);
     console.log('✅ Existing data cleared\n');
 
     const passwordHash = await bcrypt.hash('password123', 10);
@@ -239,6 +248,7 @@ async function seed() {
             await dataSource.getRepository(MilkRecord).save({
                 id: uuidv4(),
                 cowId: cow.id,
+                farmId: farm.id,
                 date: new Date(dateStr),
                 milkingTime: 'AM',
                 amount: baseProduction + Math.random() * 4 - 2, // ±2 liters variation
@@ -250,6 +260,7 @@ async function seed() {
             await dataSource.getRepository(MilkRecord).save({
                 id: uuidv4(),
                 cowId: cow.id,
+                farmId: farm.id,
                 date: new Date(dateStr),
                 milkingTime: 'PM',
                 amount: (baseProduction * 0.8) + Math.random() * 3 - 1.5,
