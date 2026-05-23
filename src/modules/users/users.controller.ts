@@ -7,6 +7,7 @@ import {
     Body,
     Param,
     UseGuards,
+    ForbiddenException,
 } from '@nestjs/common';
 import {
     ApiTags,
@@ -69,7 +70,7 @@ export class UsersController {
     @ApiResponse({ status: 200, description: 'List of all users' })
     async getAllUsers(@CurrentUser() user: User) {
         if (user.globalRole !== 'super_admin' && user.globalRole !== 'admin') {
-            throw new Error('Only admins can view all users');
+            throw new ForbiddenException('Only admins can view all users');
         }
         return this.usersService.findAll();
     }
