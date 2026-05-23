@@ -15,6 +15,7 @@ import { RegisterDto, LoginDto, AuthResponseDto } from '../../dto/auth';
 export interface JwtPayload {
     sub: string;
     email: string;
+    globalRole?: string;
 }
 
 @Injectable()
@@ -69,6 +70,8 @@ export class AuthService {
                 name: user.name,
                 phone: user.phone,
                 photoUrl: user.photoUrl,
+                globalRole: user.globalRole,
+                isActive: user.isActive,
             },
         };
     }
@@ -107,6 +110,8 @@ export class AuthService {
                 name: user.name,
                 phone: user.phone,
                 photoUrl: user.photoUrl,
+                globalRole: user.globalRole,
+                isActive: user.isActive,
             },
         };
     }
@@ -159,6 +164,7 @@ export class AuthService {
         const payload: JwtPayload = {
             sub: user.id,
             email: user.email,
+            globalRole: user.globalRole,
         };
 
         // Default 7 days in seconds

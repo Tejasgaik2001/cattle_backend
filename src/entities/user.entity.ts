@@ -9,6 +9,8 @@ import {
 import { FarmMembership } from './farm-membership.entity';
 import { Exclude } from 'class-transformer';
 
+export type GlobalRole = 'super_admin' | 'admin' | 'sub_admin' | 'worker';
+
 /**
  * Represents an individual person who can access the system.
  */
@@ -35,6 +37,17 @@ export class User {
 
     @Column({ name: 'language_preference', type: 'varchar', length: 10, default: 'en' })
     languagePreference: string;
+
+    @Column({ 
+        name: 'global_role', 
+        type: 'enum', 
+        enum: ['super_admin', 'admin', 'sub_admin', 'worker'],
+        default: 'worker' 
+    })
+    globalRole: GlobalRole;
+
+    @Column({ name: 'is_active', type: 'boolean', default: true })
+    isActive: boolean;
 
     @Column({ name: 'refresh_token', type: 'text', nullable: true })
     @Exclude()
