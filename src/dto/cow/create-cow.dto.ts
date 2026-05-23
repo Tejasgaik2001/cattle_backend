@@ -5,6 +5,7 @@ import {
     IsDateString,
     IsUUID,
     MinLength,
+    IsNumber,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -62,6 +63,14 @@ export class CreateCowDto {
     @IsOptional()
     @IsString()
     acquisitionSource?: string;
+
+    @ApiPropertyOptional({
+        example: 25000,
+        description: 'Cost of acquisition (if purchased)',
+    })
+    @IsOptional()
+    @IsNumber()
+    acquisitionCost?: number;
 
     @ApiPropertyOptional({
         example: 'uuid-of-mother-cow',

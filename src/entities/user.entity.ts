@@ -2,11 +2,14 @@ import {
     Entity,
     Column,
     OneToMany,
+    ManyToOne,
+    JoinColumn,
     PrimaryGeneratedColumn,
     CreateDateColumn,
     UpdateDateColumn,
 } from 'typeorm';
 import { FarmMembership } from './farm-membership.entity';
+import { Farm } from './farm.entity';
 import { Exclude } from 'class-transformer';
 
 export type GlobalRole = 'super_admin' | 'admin' | 'sub_admin' | 'worker';
@@ -52,6 +55,13 @@ export class User {
     @Column({ name: 'refresh_token', type: 'text', nullable: true })
     @Exclude()
     refreshToken: string | null;
+
+    @Column({ name: 'farm_id', type: 'uuid', nullable: true })
+    farmId: string | null;
+
+    @ManyToOne(() => Farm, { onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'farm_id' })
+    farm: Farm | null;
 
     @OneToMany(() => FarmMembership, (membership) => membership.user)
     memberships: FarmMembership[];

@@ -5,6 +5,7 @@ import {
     IsDateString,
     IsUUID,
     MinLength,
+    IsNumber,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -69,6 +70,14 @@ export class UpdateCowDto {
     acquisitionSource?: string;
 
     @ApiPropertyOptional({
+        example: 25000,
+        description: 'Cost of acquisition (if purchased)',
+    })
+    @IsOptional()
+    @IsNumber()
+    acquisitionCost?: number;
+
+    @ApiPropertyOptional({
         example: 'uuid-of-mother-cow',
         description: 'UUID of the mother cow',
     })
@@ -86,4 +95,37 @@ export class UpdateLifecycleStatusDto {
     @IsString()
     @IsIn(['active', 'sold', 'deceased'], { message: 'Status must be active, sold, or deceased' })
     lifecycleStatus: 'active' | 'sold' | 'deceased';
+
+    // Sale information (required when status is 'sold')
+    @ApiPropertyOptional({
+        example: 'Ramesh Kumar',
+        description: 'Name of the buyer (required when selling)',
+    })
+    @IsOptional()
+    @IsString()
+    soldTo?: string;
+
+    @ApiPropertyOptional({
+        example: 45000,
+        description: 'Sale price in local currency (required when selling)',
+    })
+    @IsOptional()
+    @IsNumber()
+    soldPrice?: number;
+
+    @ApiPropertyOptional({
+        example: '2024-05-23',
+        description: 'Date of sale (required when selling)',
+    })
+    @IsOptional()
+    @IsDateString({}, { message: 'Sale date must be a valid date (YYYY-MM-DD)' })
+    soldDate?: string;
+
+    @ApiPropertyOptional({
+        example: 'Sold for breeding purposes',
+        description: 'Additional notes about the sale',
+    })
+    @IsOptional()
+    @IsString()
+    soldDescription?: string;
 }

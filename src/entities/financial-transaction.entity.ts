@@ -8,7 +8,6 @@ import { BaseEntity } from './base.entity';
 import { Farm } from './farm.entity';
 import { Cow } from './cow.entity';
 import { User } from './user.entity';
-import { Person } from './person.entity';
 
 /**
  * Represents any financial activity for the Farm.
@@ -39,7 +38,7 @@ export class FinancialTransaction extends BaseEntity {
     cowId: string | null; // Optional: for transactions related to a specific cow
 
     @Column({ name: 'paid_by_id', type: 'uuid', nullable: true })
-    paidById: string | null; // Who physically paid this
+    paidById: string | null; // Who physically paid this (can be Person or User ID)
 
     @ManyToOne(() => Farm, (farm) => farm.financialTransactions, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'farm_id' })
@@ -52,12 +51,8 @@ export class FinancialTransaction extends BaseEntity {
     @JoinColumn({ name: 'cow_id' })
     cow: Cow | null;
 
-    @ManyToOne(() => Person, (person) => person.transactions, {
-        nullable: true,
-        onDelete: 'SET NULL',
-    })
-    @JoinColumn({ name: 'paid_by_id' })
-    paidBy: Person | null;
+    // Note: paidBy relationship removed to allow both Person and User IDs
+    // The paidById field stores either a Person ID or User ID
 
     @ManyToOne(() => User, { nullable: true })
     @JoinColumn({ name: 'created_by' })

@@ -6,11 +6,12 @@ import { Cow } from '../../entities/cow.entity';
 import { CowEvent } from '../../entities/cow-event.entity';
 import { Farm } from '../../entities/farm.entity';
 import { FarmMembership } from '../../entities/farm-membership.entity';
+import { FinancialTransaction } from '../../entities/financial-transaction.entity';
 import { FarmsModule } from '../farms/farms.module';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([Cow, CowEvent, Farm, FarmMembership]),
+        TypeOrmModule.forFeature([Cow, CowEvent, Farm, FarmMembership, FinancialTransaction]),
         FarmsModule,
     ],
     controllers: [CowsController],

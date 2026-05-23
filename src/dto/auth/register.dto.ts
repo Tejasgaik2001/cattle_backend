@@ -37,3 +37,64 @@ export class RegisterDto {
     @IsString()
     phone?: string;
 }
+
+export class RegisterWithFarmDto {
+    @ApiProperty({
+        example: 'farmer@example.com',
+        description: 'User email address',
+    })
+    @IsEmail({}, { message: 'Please provide a valid email address' })
+    email: string;
+
+    @ApiProperty({
+        example: 'SecurePass123',
+        description: 'Password (min 8 chars, at least 1 letter and 1 number)',
+        minLength: 8,
+    })
+    @IsString()
+    @MinLength(8, { message: 'Password must be at least 8 characters long' })
+    @Matches(/^(?=.*[a-zA-Z])(?=.*[0-9])/, {
+        message: 'Password must contain at least 1 letter and 1 number',
+    })
+    password: string;
+
+    @ApiProperty({
+        example: 'Rajesh Patil',
+        description: 'Full name of the user',
+    })
+    @IsString()
+    @MinLength(2, { message: 'Name must be at least 2 characters long' })
+    name: string;
+
+    @ApiPropertyOptional({
+        example: '+91 9876543210',
+        description: 'Phone number',
+    })
+    @IsOptional()
+    @IsString()
+    phone?: string;
+
+    @ApiProperty({
+        example: 'Green Valley Dairy Farm',
+        description: 'Farm name',
+    })
+    @IsString()
+    @MinLength(2, { message: 'Farm name must be at least 2 characters long' })
+    farmName: string;
+
+    @ApiProperty({
+        example: 'Pune, Maharashtra',
+        description: 'Farm location',
+    })
+    @IsString()
+    @MinLength(2, { message: 'Farm location must be at least 2 characters long' })
+    farmLocation: string;
+
+    @ApiPropertyOptional({
+        example: 'A medium-sized dairy farm with quality cows',
+        description: 'Farm description',
+    })
+    @IsOptional()
+    @IsString()
+    farmDescription?: string;
+}

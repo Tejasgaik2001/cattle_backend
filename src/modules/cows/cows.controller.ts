@@ -89,6 +89,16 @@ export class CowsController {
         }));
     }
 
+    @Get('family-tree')
+    @ApiOperation({ summary: 'Get family tree data for all cows' })
+    @ApiResponse({ status: 200, description: 'Family tree data with mother relationships' })
+    async getFamilyTree(
+        @CurrentUser() user: User,
+    ) {
+        const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
+        return this.cowsService.getFamilyTree(farmId);
+    }
+
     @Get(':cowId')
     @ApiOperation({ summary: 'Get cow details by ID' })
     @ApiParam({ name: 'cowId', description: 'Cow UUID' })
@@ -125,7 +135,7 @@ export class CowsController {
         @CurrentUser() user: User,
     ) {
         const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
-        return this.cowsService.updateLifecycleStatus(farmId, cowId, updateStatusDto);
+        return this.cowsService.updateLifecycleStatus(farmId, cowId, updateStatusDto, user.id);
     }
 
     @Delete(':cowId')

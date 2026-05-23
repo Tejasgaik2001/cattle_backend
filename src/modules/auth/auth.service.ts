@@ -10,7 +10,8 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { User } from '../../entities/user.entity';
-import { RegisterDto, LoginDto, AuthResponseDto } from '../../dto/auth';
+import { RegisterDto, RegisterWithFarmDto, LoginDto, AuthResponseDto } from '../../dto/auth';
+import { FarmsService } from '../farms/farms.service';
 
 export interface JwtPayload {
     sub: string;
@@ -25,6 +26,7 @@ export class AuthService {
         private userRepository: Repository<User>,
         private jwtService: JwtService,
         private configService: ConfigService,
+        private farmsService: FarmsService,
     ) { }
 
     /**
@@ -55,6 +57,70 @@ export class AuthService {
         });
 
         await this.userRepository.save(user);
+
+        // Generate tokens
+        const tokens = await this.generateTokens(user);
+
+        // Save refresh token
+        await this.updateRefreshToken(user.id, tokens.refreshToken);
+
+        return {
+            ...tokens,
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                phone: user.phone,
+                photoUrl: user.photoUrl,
+                globalRole: user.globalRole,
+                isActive: user.isActive,
+            },
+        };
+    }
+
+    /**
+     * Register a new user with farm creation
+     */
+    async registerWithFarm(registerWithFarmDto: RegisterWithFarmDto): Promise<AuthResponseDto> {
+        const { email, password, name, phone, farmName, farmLocation, farmDescription } = registerWithFarmDto;
+
+        // Check if user already exists
+        const existingUser = await this.userRepository.findOne({
+            where: { email: email.toLowerCase() },
+        });
+
+        if (existingUser) {
+            throw new ConflictException('Email already registered');
+        }
+
+        // Hash password
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+        // Create user with super_admin role
+        const user = this.userRepository.create({
+            email: email.toLowerCase(),
+            password: hashedPassword,
+            name,
+            phone: phone || null,
+            globalRole: 'super_admin',
+            isActive: true,
+        });
+
+        await this.userRepository.save(user);
+
+        // Create farm
+        const farm = await this.farmsService.create(
+            {
+                name: farmName,
+                location: farmLocation,
+                description: farmDescription,
+            },
+            user.id
+        );
+
+        // Update user's farmId
+        await this.userRepository.update(user.id, { farmId: farm.id });
 
         // Generate tokens
         const tokens = await this.generateTokens(user);
