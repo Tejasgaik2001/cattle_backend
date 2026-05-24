@@ -176,22 +176,12 @@ export class MemberDueService {
             throw new NotFoundException('Cannot determine farm for settlement');
         }
 
-        // Create a settlement transaction to reflect in farm cash flow
-        const settlementTx = this.transactionRepository.create({
-            farmId: farmId,
-            amount: paymentAmount,
-            date: new Date(dto.paidDate),
-            // If Business owes Member, and we pay -> it's an EXPENSE for business cash
-            // If Member owes Business, and they pay -> it's an INCOME for business cash
-            type: due.type === MemberDueType.BUSINESS_OWES ? 'expense' : 'income',
-            category: due.type === MemberDueType.BUSINESS_OWES ? 'Reimbursement Payment' : 'Member Due Settlement',
-            description: `Partial payment (${paymentAmount}) for ${due.type === MemberDueType.BUSINESS_OWES ? 'reimbursement' : 'member collection'}. ${dto.note || ''}`,
-            paidById: due.personId || due.userId,
-        });
-
-        await this.transactionRepository.save(settlementTx);
-
         // Update paid amount and status
+        // Note: We don't create a transaction here because:
+        // 1. For BUSINESS_OWES: The original expense was already recorded when the person paid
+        // 2. For OWES_BUSINESS: The original income was already recorded when the person received
+        // 3. The member due system tracks the debt separately
+        // 4. Settling just marks the debt as paid, not a new financial transaction
         due.paidAmount = Number(due.paidAmount || 0) + paymentAmount;
         
         if (due.paidAmount >= Number(due.amount)) {

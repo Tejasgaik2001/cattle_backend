@@ -68,22 +68,30 @@ export class FinancialService {
                 where: { id: createDto.paidById, farmId },
             });
             if (person) {
+                // If expense: person paid for business → business owes person
+                // If income: person received income personally → person owes business
+                const dueType = createDto.type === 'expense' 
+                    ? MemberDueType.BUSINESS_OWES 
+                    : MemberDueType.OWES_BUSINESS;
+                
                 await this.memberDueService.create({
                     personId: createDto.paidById,
                     transactionId: savedTransaction.id,
                     amount: Number(savedTransaction.amount),
-                    // If expense: person paid for business → business owes person
-                    // If income: person received income → person owes business
-                    type: savedTransaction.type === 'expense' ? MemberDueType.BUSINESS_OWES : MemberDueType.OWES_BUSINESS,
+                    type: dueType,
                     note: `Automatically created from ${savedTransaction.category} ${savedTransaction.type}`
                 });
             } else {
                 // If not a person, treat as user ID
+                const dueType = createDto.type === 'expense' 
+                    ? MemberDueType.BUSINESS_OWES 
+                    : MemberDueType.OWES_BUSINESS;
+                
                 await this.memberDueService.create({
                     userId: createDto.paidById,
                     transactionId: savedTransaction.id,
                     amount: Number(savedTransaction.amount),
-                    type: savedTransaction.type === 'expense' ? MemberDueType.BUSINESS_OWES : MemberDueType.OWES_BUSINESS,
+                    type: dueType,
                     note: `Automatically created from ${savedTransaction.category} ${savedTransaction.type}`
                 });
             }
@@ -198,6 +206,30 @@ export class FinancialService {
         const totalExpenses = parseFloat(expenseResult?.total || '0');
 
         return { totalIncome, totalExpenses, netProfitLoss: totalIncome - totalExpenses };
+    }
+
+    /**
+     * Get milk sales income only (from transactions + milk records)
+     */
+    async getMilkSalesIncome(
+        farmId: string,
+        startDate: string,
+        endDate: string,
+    ): Promise<number> {
+        const milkSalesResult = await this.transactionRepository
+            .createQueryBuilder('transaction')
+            .select('SUM(transaction.amount)', 'total')
+            .where('transaction.farmId = :farmId', { farmId })
+            .andWhere('transaction.type = :type', { type: 'income' })
+            .andWhere('transaction.category = :category', { category: 'Milk Sales' })
+            .andWhere('transaction.date >= :startDate', { startDate })
+            .andWhere('transaction.date <= :endDate', { endDate })
+            .getRawOne();
+
+        // Include milk income from milk records
+        const milkIncome = await this.milkRecordsService.getPeriodValue(farmId, startDate, endDate);
+        
+        return parseFloat(milkSalesResult?.total || '0') + milkIncome;
     }
 
     /**
