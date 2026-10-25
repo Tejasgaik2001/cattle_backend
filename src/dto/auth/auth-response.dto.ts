@@ -15,6 +15,8 @@ export class AuthResponseDto {
             name: 'Rajesh Patil',
             phone: '+91 9876543210',
             photoUrl: null,
+            globalRole: 'worker',
+            isActive: true,
         },
     })
     user: {
@@ -23,5 +25,7 @@ export class AuthResponseDto {
         name: string;
         phone: string | null;
         photoUrl: string | null;
+        globalRole: string;
+        isActive: boolean;
     };
 }

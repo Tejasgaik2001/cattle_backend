@@ -7,7 +7,6 @@ import {
 } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { Farm } from './farm.entity';
-import { FinancialTransaction } from './financial-transaction.entity';
 import { MemberDue } from './member-due.entity';
 
 
@@ -35,8 +34,8 @@ export class Person extends BaseEntity {
     @JoinColumn({ name: 'farm_id' })
     farm: Farm;
 
-    @OneToMany(() => FinancialTransaction, (tx) => tx.paidBy)
-    transactions: FinancialTransaction[];
+    // Note: transactions relationship removed as paidBy was removed from FinancialTransaction
+    // to allow both Person and User IDs in paidById
 
     @OneToMany(() => MemberDue, (due) => due.person)
     memberDues: MemberDue[];

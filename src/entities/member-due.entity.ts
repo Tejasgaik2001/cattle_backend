@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { Person } from './person.entity';
+import { User } from './user.entity';
 import { FinancialTransaction } from './financial-transaction.entity';
 
 export enum MemberDueType {
@@ -17,13 +18,17 @@ export enum MemberDueType {
 
 export enum MemberDueStatus {
     PENDING = 'PENDING',
+    PARTIALLY_PAID = 'PARTIALLY_PAID',
     SETTLED = 'SETTLED',
 }
 
 @Entity('member_dues')
 export class MemberDue extends BaseEntity {
-    @Column({ name: 'person_id', type: 'uuid' })
-    personId: string;
+    @Column({ name: 'person_id', type: 'uuid', nullable: true })
+    personId: string | null;
+
+    @Column({ name: 'user_id', type: 'uuid', nullable: true })
+    userId: string | null;
 
     @Column({
         type: 'varchar',
@@ -34,6 +39,9 @@ export class MemberDue extends BaseEntity {
 
     @Column({ type: 'decimal', precision: 12, scale: 2 })
     amount: number;
+
+    @Column({ name: 'paid_amount', type: 'decimal', precision: 12, scale: 2, default: 0 })
+    paidAmount: number;
 
     @Column({
         type: 'varchar',
@@ -53,7 +61,11 @@ export class MemberDue extends BaseEntity {
 
     @ManyToOne(() => Person, (person) => person.memberDues, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'person_id' })
-    person: Person;
+    person: Person | null;
+
+    @ManyToOne(() => User, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'user_id' })
+    user: User | null;
 
     @ManyToOne(() => FinancialTransaction, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: 'linked_transaction_id' })

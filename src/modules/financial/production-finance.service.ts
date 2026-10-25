@@ -23,6 +23,9 @@ export class ProductionFinanceService {
             this.financialService.getOverview(farmId, start, end),
         ]);
 
+        // Filter income to only include Milk Sales
+        const milkIncome = await this.financialService.getMilkSalesIncome(farmId, start, end);
+
         // Get period label
         let periodLabel = `${start} to ${end}`;
         if (!startDate && !endDate) {
@@ -35,9 +38,9 @@ export class ProductionFinanceService {
 
         return {
             totalMilkProduction: milkTotal,
-            totalIncome: financialOverview.totalIncome,
+            milkIncome: milkIncome,
             totalExpenses: financialOverview.totalExpenses,
-            netProfitLoss: financialOverview.netProfitLoss,
+            netProfitLoss: milkIncome - financialOverview.totalExpenses,
             currentPeriod: periodLabel,
         };
     }

@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { JwtRefreshStrategy } from './jwt-refresh.strategy';
 import { User } from '../../entities/user.entity';
+import { FarmsModule } from '../farms/farms.module';
 
 @Module({
     imports: [
@@ -28,6 +29,7 @@ import { User } from '../../entities/user.entity';
             },
             inject: [ConfigService],
         }),
+        FarmsModule,
     ],
     controllers: [AuthController],
     providers: [AuthService, JwtStrategy, JwtRefreshStrategy],

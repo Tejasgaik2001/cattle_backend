@@ -5,17 +5,21 @@ import {
     BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, ILike } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Cow, CowLifecycleStatus } from '../../entities/cow.entity';
+import { CowEvent } from '../../entities/cow-event.entity';
 import { CreateCowDto, UpdateCowDto, UpdateLifecycleStatusDto, CowFilterDto } from '../../dto/cow';
 import { getPagination, createPaginatedResult, PaginatedResult } from '../../common/utils/pagination.utils';
 import { isFutureDate } from '../../common/utils/date.utils';
+import { FinancialTransaction } from '../../entities/financial-transaction.entity';
 
 @Injectable()
 export class CowsService {
     constructor(
         @InjectRepository(Cow)
         private cowRepository: Repository<Cow>,
+        @InjectRepository(FinancialTransaction)
+        private transactionRepository: Repository<FinancialTransaction>,
     ) { }
 
     /**
@@ -236,9 +240,46 @@ export class CowsService {
         farmId: string,
         cowId: string,
         updateStatusDto: UpdateLifecycleStatusDto,
+        userId: string,
     ): Promise<Cow> {
         const cow = await this.findOne(farmId, cowId);
         cow.lifecycleStatus = updateStatusDto.lifecycleStatus;
+
+        // If selling the cow, require and save sale information
+        if (updateStatusDto.lifecycleStatus === 'sold') {
+            if (!updateStatusDto.soldTo || !updateStatusDto.soldPrice || !updateStatusDto.soldDate) {
+                throw new BadRequestException('soldTo, soldPrice, and soldDate are required when selling a cow');
+            }
+            cow.soldTo = updateStatusDto.soldTo;
+            cow.soldPrice = updateStatusDto.soldPrice;
+            cow.soldDate = new Date(updateStatusDto.soldDate);
+            cow.soldDescription = updateStatusDto.soldDescription || null;
+
+            // Create a financial transaction for the cow sale
+            let description = `Sold ${cow.name || cow.tagId} to ${updateStatusDto.soldTo}`;
+            if (updateStatusDto.soldDescription) {
+                description += ` - ${updateStatusDto.soldDescription}`;
+            }
+            
+            const saleTransaction = this.transactionRepository.create({
+                farmId,
+                cowId: cow.id,
+                type: 'income',
+                category: 'Cow Sales',
+                amount: updateStatusDto.soldPrice,
+                date: new Date(updateStatusDto.soldDate),
+                description,
+                createdBy: userId,
+            });
+            await this.transactionRepository.save(saleTransaction);
+        } else {
+            // Clear sale information if not sold
+            cow.soldTo = null;
+            cow.soldPrice = null;
+            cow.soldDate = null;
+            cow.soldDescription = null;
+        }
+
         return this.cowRepository.save(cow);
     }
 
@@ -316,5 +357,36 @@ export class CowsService {
             femaleCows,
             maleCows,
         };
+    }
+
+    /**
+     * Get family tree data for all cows in the farm
+     */
+    async getFamilyTree(farmId: string): Promise<Cow[]> {
+        const cows = await this.cowRepository.find({
+            where: { farmId },
+            relations: ['mother'],
+            order: { dateOfBirth: 'ASC' },
+        });
+
+        // Get all breeding events to enrich with sire information
+        const breedingEvents = await this.cowRepository
+            .createQueryBuilder('cow')
+            .leftJoinAndSelect('cow.events', 'event', 'event.type = :type', { type: 'BREEDING' })
+            .where('cow.farmId = :farmId', { farmId })
+            .getMany();
+
+        // Merge breeding event data into cows
+        const cowMap = new Map(cows.map(c => [c.id, c]));
+        
+        breedingEvents.forEach(cow => {
+            const existingCow = cowMap.get(cow.id);
+            if (existingCow && cow.events) {
+                // Attach breeding events to the cow
+                (existingCow as any).breedingEvents = cow.events;
+            }
+        });
+
+        return cows;
     }
 }

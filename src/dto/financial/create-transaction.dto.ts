@@ -10,23 +10,6 @@ import {
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-const EXPENSE_CATEGORIES = [
-    'Feed',
-    'Veterinary',
-    'Breeding / AI',
-    'Labor',
-    'Utilities',
-    'Maintenance / Miscellaneous',
-    'Medical',
-    'Infrastructure',
-    'Other',
-];
-
-const INCOME_CATEGORIES = ['Milk Sales', 'Cow Sales', 'Cow Dung Sales', 'Other Income'];
-
-
-const ALL_CATEGORIES = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES];
-
 export class CreateTransactionDto {
     @ApiProperty({
         example: 'expense',
@@ -40,12 +23,8 @@ export class CreateTransactionDto {
     @ApiProperty({
         example: 'Feed',
         description: 'Transaction category',
-        enum: ALL_CATEGORIES,
     })
     @IsString()
-    @IsIn(ALL_CATEGORIES, {
-        message: `Category must be one of: ${ALL_CATEGORIES.join(', ')}`,
-    })
     category: string;
 
     @ApiProperty({

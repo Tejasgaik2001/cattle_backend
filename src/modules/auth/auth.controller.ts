@@ -15,7 +15,7 @@ import {
     ApiBody,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, RefreshTokenDto, AuthResponseDto } from '../../dto/auth';
+import { RegisterDto, RegisterWithFarmDto, LoginDto, RefreshTokenDto, AuthResponseDto } from '../../dto/auth';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { CurrentUser } from '../../common/decorators';
@@ -33,6 +33,15 @@ export class AuthController {
     @ApiResponse({ status: 409, description: 'Email already registered' })
     async register(@Body() registerDto: RegisterDto): Promise<AuthResponseDto> {
         return this.authService.register(registerDto);
+    }
+
+    @Post('register-with-farm')
+    @ApiOperation({ summary: 'Register a new user and create a farm (for first-time setup)' })
+    @ApiResponse({ status: 201, description: 'User and farm created successfully', type: AuthResponseDto })
+    @ApiResponse({ status: 400, description: 'Validation error' })
+    @ApiResponse({ status: 409, description: 'Email already registered' })
+    async registerWithFarm(@Body() registerWithFarmDto: RegisterWithFarmDto): Promise<AuthResponseDto> {
+        return this.authService.registerWithFarm(registerWithFarmDto);
     }
 
     @Post('login')

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Body, Param, UseGuards } from '@nestjs/common';
 import { MemberDueService, SettleMemberDueDto } from './member-due.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators';
@@ -28,7 +28,6 @@ export class MemberDueController {
     @Patch(':id/mark-paid')
     async settle(@CurrentUser() user: User, @Param('id') id: string, @Body() dto: SettleMemberDueDto) {
         const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
-        // Check ownership of the due entry via person -> farm
-        return await this.memberDueService.settle(id, dto);
+        return await this.memberDueService.settle(id, dto, farmId);
     }
 }

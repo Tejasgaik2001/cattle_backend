@@ -50,6 +50,22 @@ export class Cow extends BaseEntity {
     @Column({ name: 'acquisition_source', type: 'varchar', nullable: true })
     acquisitionSource: string | null;
 
+    @Column({ name: 'acquisition_cost', type: 'decimal', nullable: true, precision: 10, scale: 2 })
+    acquisitionCost: number | null;
+
+    // Sale information (when cow is sold)
+    @Column({ name: 'sold_to', type: 'varchar', nullable: true })
+    soldTo: string | null;
+
+    @Column({ name: 'sold_price', type: 'decimal', nullable: true, precision: 10, scale: 2 })
+    soldPrice: number | null;
+
+    @Column({ name: 'sold_date', type: 'date', nullable: true })
+    soldDate: Date | null;
+
+    @Column({ name: 'sold_description', type: 'text', nullable: true })
+    soldDescription: string | null;
+
     @Column({ name: 'mother_id', type: 'uuid', nullable: true })
     motherId: string | null;
 

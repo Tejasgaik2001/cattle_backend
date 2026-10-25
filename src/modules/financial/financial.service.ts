@@ -42,10 +42,15 @@ export class FinancialService {
         }
 
         if (createDto.paidById) {
+            // paidById can be either a Person or User ID
+            // Try to find as Person first, then as User
             const person = await this.personRepository.findOne({
                 where: { id: createDto.paidById, farmId },
             });
-            if (!person) throw new NotFoundException('Person not found in this farm');
+            if (!person) {
+                // If not a person, check if it's a valid user
+                // We'll store the user ID directly in paidById for users
+            }
         }
 
         const transaction = this.transactionRepository.create({
@@ -59,13 +64,37 @@ export class FinancialService {
 
         // If a person is involved (paid/received personally), create a member due entry
         if (createDto.paidById) {
-            await this.memberDueService.create({
-                personId: createDto.paidById,
-                transactionId: savedTransaction.id,
-                amount: Number(savedTransaction.amount),
-                type: savedTransaction.type === 'expense' ? MemberDueType.BUSINESS_OWES : MemberDueType.OWES_BUSINESS,
-                note: `Automatically created from ${savedTransaction.category} ${savedTransaction.type}`
+            const person = await this.personRepository.findOne({
+                where: { id: createDto.paidById, farmId },
             });
+            if (person) {
+                // If expense: person paid for business → business owes person
+                // If income: person received income personally → person owes business
+                const dueType = createDto.type === 'expense' 
+                    ? MemberDueType.BUSINESS_OWES 
+                    : MemberDueType.OWES_BUSINESS;
+                
+                await this.memberDueService.create({
+                    personId: createDto.paidById,
+                    transactionId: savedTransaction.id,
+                    amount: Number(savedTransaction.amount),
+                    type: dueType,
+                    note: `Automatically created from ${savedTransaction.category} ${savedTransaction.type}`
+                });
+            } else {
+                // If not a person, treat as user ID
+                const dueType = createDto.type === 'expense' 
+                    ? MemberDueType.BUSINESS_OWES 
+                    : MemberDueType.OWES_BUSINESS;
+                
+                await this.memberDueService.create({
+                    userId: createDto.paidById,
+                    transactionId: savedTransaction.id,
+                    amount: Number(savedTransaction.amount),
+                    type: dueType,
+                    note: `Automatically created from ${savedTransaction.category} ${savedTransaction.type}`
+                });
+            }
         }
 
         return savedTransaction;
@@ -81,7 +110,6 @@ export class FinancialService {
             .createQueryBuilder('transaction')
             .leftJoin('transaction.cow', 'cow')
             .addSelect(['cow.id', 'cow.tagId', 'cow.name'])
-            .leftJoinAndSelect('transaction.paidBy', 'paidBy')
             .where('transaction.farmId = :farmId', { farmId });
 
         if (filterDto.type) {
@@ -111,7 +139,7 @@ export class FinancialService {
     async findOne(farmId: string, transactionId: string): Promise<FinancialTransaction> {
         const transaction = await this.transactionRepository.findOne({
             where: { id: transactionId, farmId },
-            relations: ['cow', 'paidBy'],
+            relations: ['cow'],
         });
         if (!transaction) throw new NotFoundException('Transaction not found');
         return transaction;
@@ -178,6 +206,30 @@ export class FinancialService {
         const totalExpenses = parseFloat(expenseResult?.total || '0');
 
         return { totalIncome, totalExpenses, netProfitLoss: totalIncome - totalExpenses };
+    }
+
+    /**
+     * Get milk sales income only (from transactions + milk records)
+     */
+    async getMilkSalesIncome(
+        farmId: string,
+        startDate: string,
+        endDate: string,
+    ): Promise<number> {
+        const milkSalesResult = await this.transactionRepository
+            .createQueryBuilder('transaction')
+            .select('SUM(transaction.amount)', 'total')
+            .where('transaction.farmId = :farmId', { farmId })
+            .andWhere('transaction.type = :type', { type: 'income' })
+            .andWhere('transaction.category = :category', { category: 'Milk Sales' })
+            .andWhere('transaction.date >= :startDate', { startDate })
+            .andWhere('transaction.date <= :endDate', { endDate })
+            .getRawOne();
+
+        // Include milk income from milk records
+        const milkIncome = await this.milkRecordsService.getPeriodValue(farmId, startDate, endDate);
+        
+        return parseFloat(milkSalesResult?.total || '0') + milkIncome;
     }
 
     /**
@@ -313,7 +365,7 @@ export class FinancialService {
                 this.getIncomeBreakdown(farmId, startDate, endDate),
                 this.transactionRepository.find({
                     where: { farmId },
-                    relations: ['paidBy'],
+                    relations: ['cow'],
                     order: { date: 'DESC', createdAt: 'DESC' },
                     take: 10,
                 }),
