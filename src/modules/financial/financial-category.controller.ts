@@ -5,7 +5,7 @@ import { CurrentUser } from '../../common/decorators';
 import { User } from '../../entities/user.entity';
 import { FarmsService } from '../farms/farms.service';
 
-@Controller('financial-categories')
+@Controller('api/v1/financial-categories')
 @UseGuards(JwtAuthGuard)
 export class FinancialCategoryController {
     constructor(

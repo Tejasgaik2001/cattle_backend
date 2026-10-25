@@ -60,8 +60,8 @@ export class MemberDueService {
             if (!personGroups.has(pid)) {
                 personGroups.set(pid, {
                     personId: pid,
-                    name: due.person.name,
-                    role: due.person.role,
+                    name: due.person?.name || 'Unknown',
+                    role: due.person?.role || 'MEMBER',
                     businessOwes: 0,
                     owesBusiness: 0,
                     items: []
