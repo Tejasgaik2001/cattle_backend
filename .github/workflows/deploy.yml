@@ -16,9 +16,10 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
           script: |
-            cd /home/tejas/tejas_project/cattle_mangement/cattle_backend
-            git pull origin master
-            docker-compose down
-            docker-compose up -d --build
-            docker system prune -f
+            cd /opt/cattle_management/cattle_backend
+            git fetch origin master
+            git reset --hard origin/master
+            docker compose up -d --build
+            docker image prune -f
