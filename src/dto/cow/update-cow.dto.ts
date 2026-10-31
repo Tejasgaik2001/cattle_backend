@@ -6,6 +6,7 @@ import {
     IsUUID,
     MinLength,
     IsNumber,
+    IsBoolean,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -84,6 +85,39 @@ export class UpdateCowDto {
     @IsOptional()
     @IsUUID('4', { message: 'Mother ID must be a valid UUID' })
     motherId?: string;
+
+    @ApiPropertyOptional({
+        example: 'uuid-of-sire-cow',
+        description: 'UUID of the on-farm sire bull',
+    })
+    @IsOptional()
+    @IsUUID('4', { message: 'Sire ID must be a valid UUID' })
+    sireId?: string;
+
+    @ApiPropertyOptional({
+        example: 'uuid-of-external-bull',
+        description: 'UUID of the external bull',
+    })
+    @IsOptional()
+    @IsUUID('4', { message: 'External Sire ID must be a valid UUID' })
+    externalSireId?: string;
+
+    @ApiPropertyOptional({
+        example: 'NATURAL',
+        description: 'Breeding method used (NATURAL or AI)',
+        enum: ['NATURAL', 'AI'],
+    })
+    @IsOptional()
+    @IsIn(['NATURAL', 'AI'], { message: 'Breeding method must be NATURAL or AI' })
+    breedingMethod?: 'NATURAL' | 'AI';
+
+    @ApiPropertyOptional({
+        example: true,
+        description: 'Whether the calf was born on this farm or purchased',
+    })
+    @IsOptional()
+    @IsBoolean()
+    bornOnFarm?: boolean;
 }
 
 export class UpdateLifecycleStatusDto {

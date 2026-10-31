@@ -7,16 +7,23 @@ export class AddFarmIdToUsers1716480000002 implements MigrationInterface {
         // Add farm_id column to users table
         await queryRunner.query(`
             ALTER TABLE "users" 
-            ADD COLUMN "farm_id" UUID NULL
+            ADD COLUMN IF NOT EXISTS "farm_id" UUID NULL
         `);
 
         // Add foreign key constraint for farm_id
         await queryRunner.query(`
-            ALTER TABLE "users" 
-            ADD CONSTRAINT "fk_users_farm_id" 
-            FOREIGN KEY ("farm_id") 
-            REFERENCES "farms"("id") 
-            ON DELETE SET NULL
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'fk_users_farm_id'
+                ) THEN
+                    ALTER TABLE "users" 
+                    ADD CONSTRAINT "fk_users_farm_id" 
+                    FOREIGN KEY ("farm_id") 
+                    REFERENCES "farms"("id") 
+                    ON DELETE SET NULL;
+                END IF;
+            END $$;
         `);
     }
 

@@ -7,16 +7,23 @@ export class AddUserSupportToMemberDues1716480000001 implements MigrationInterfa
         // Add user_id column to member_dues table
         await queryRunner.query(`
             ALTER TABLE "member_dues" 
-            ADD COLUMN "user_id" UUID NULL
+            ADD COLUMN IF NOT EXISTS "user_id" UUID NULL
         `);
 
         // Add foreign key constraint for user_id
         await queryRunner.query(`
-            ALTER TABLE "member_dues" 
-            ADD CONSTRAINT "fk_user_id" 
-            FOREIGN KEY ("user_id") 
-            REFERENCES "users"("id") 
-            ON DELETE CASCADE
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_id'
+                ) THEN
+                    ALTER TABLE "member_dues" 
+                    ADD CONSTRAINT "fk_user_id" 
+                    FOREIGN KEY ("user_id") 
+                    REFERENCES "users"("id") 
+                    ON DELETE CASCADE;
+                END IF;
+            END $$;
         `);
 
         // Make person_id nullable

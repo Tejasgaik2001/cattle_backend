@@ -7,7 +7,7 @@ export class AddAcquisitionCostToCows1716480000004 implements MigrationInterface
         // Add acquisition_cost column to cows table
         await queryRunner.query(`
             ALTER TABLE "cows" 
-            ADD COLUMN "acquisition_cost" DECIMAL(10,2) NULL
+            ADD COLUMN IF NOT EXISTS "acquisition_cost" DECIMAL(10,2) NULL
         `);
     }
 

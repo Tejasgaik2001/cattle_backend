@@ -7,10 +7,10 @@ export class AddCowSaleInfo1716480000003 implements MigrationInterface {
         // Add sale information columns to cows table
         await queryRunner.query(`
             ALTER TABLE "cows" 
-            ADD COLUMN "sold_to" VARCHAR(255) NULL,
-            ADD COLUMN "sold_price" DECIMAL(10,2) NULL,
-            ADD COLUMN "sold_date" DATE NULL,
-            ADD COLUMN "sold_description" TEXT NULL
+            ADD COLUMN IF NOT EXISTS "sold_to" VARCHAR(255) NULL,
+            ADD COLUMN IF NOT EXISTS "sold_price" DECIMAL(10,2) NULL,
+            ADD COLUMN IF NOT EXISTS "sold_date" DATE NULL,
+            ADD COLUMN IF NOT EXISTS "sold_description" TEXT NULL
         `);
     }
 

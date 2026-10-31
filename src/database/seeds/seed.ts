@@ -231,33 +231,28 @@ async function seed() {
     }
     console.log(`✅ Created ${eventCount} cow events\n`);
 
-    // Create milk records for last 30 days
+    // Create milk records for last 30 days (bulk insert for speed)
     console.log('🥛 Creating milk records...');
-    let milkRecordCount = 0;
+    const milkRecords: object[] = [];
     for (let dayOffset = 0; dayOffset < 30; dayOffset++) {
         const recordDate = new Date(today);
         recordDate.setDate(recordDate.getDate() - dayOffset);
         const dateStr = recordDate.toISOString().split('T')[0];
 
         for (const cow of femaleCows) {
-            // Vary milk production by breed and randomness
             const baseProduction = cow.breed === 'Holstein Friesian' ? 12 :
                 cow.breed === 'Jersey' ? 10 : 8;
 
-            // AM milking
-            await dataSource.getRepository(MilkRecord).save({
+            milkRecords.push({
                 id: uuidv4(),
                 cowId: cow.id,
                 farmId: farm.id,
                 date: new Date(dateStr),
                 milkingTime: 'AM',
-                amount: baseProduction + Math.random() * 4 - 2, // ±2 liters variation
+                amount: baseProduction + Math.random() * 4 - 2,
                 createdBy: owner.id,
             });
-            milkRecordCount++;
-
-            // PM milking (slightly less)
-            await dataSource.getRepository(MilkRecord).save({
+            milkRecords.push({
                 id: uuidv4(),
                 cowId: cow.id,
                 farmId: farm.id,
@@ -266,10 +261,11 @@ async function seed() {
                 amount: (baseProduction * 0.8) + Math.random() * 3 - 1.5,
                 createdBy: owner.id,
             });
-            milkRecordCount++;
         }
     }
-    console.log(`✅ Created ${milkRecordCount} milk records (30 days)\n`);
+    // Insert all records in one bulk operation
+    await dataSource.getRepository(MilkRecord).save(milkRecords as any[], { chunk: 100 });
+    console.log(`✅ Created ${milkRecords.length} milk records (30 days)\n`);
 
     // Create comprehensive financial transactions
     console.log('💰 Creating financial transactions...');
@@ -323,7 +319,7 @@ async function seed() {
     console.log('📊 Data Summary:');
     console.log(`   🐄 Cows: ${cows.length}`);
     console.log(`   📋 Events: ${eventCount}`);
-    console.log(`   🥛 Milk Records: ${milkRecordCount}`);
+    console.log(`   🥛 Milk Records: ${milkRecords.length}`);
     console.log(`   💰 Transactions: ${transactionData.length}\n`);
 
     await dataSource.destroy();

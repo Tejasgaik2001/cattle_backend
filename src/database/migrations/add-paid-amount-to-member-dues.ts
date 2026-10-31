@@ -7,7 +7,7 @@ export class AddPaidAmountToMemberDues1716480000005 implements MigrationInterfac
         // Add paid_amount column to member_dues table
         await queryRunner.query(`
             ALTER TABLE "member_dues" 
-            ADD COLUMN "paid_amount" DECIMAL(12,2) DEFAULT 0
+            ADD COLUMN IF NOT EXISTS "paid_amount" DECIMAL(12,2) DEFAULT 0
         `);
         
         // Update the status enum to include PARTIALLY_PAID

@@ -19,14 +19,14 @@ import {
 } from '@nestjs/swagger';
 import { CowsService } from './cows.service';
 import { FarmsService } from '../farms/farms.service';
-import { CreateCowDto, UpdateCowDto, UpdateLifecycleStatusDto, CowFilterDto } from '../../dto/cow';
+import { CreateCowDto, UpdateCowDto, UpdateLifecycleStatusDto, CowFilterDto, CreateExternalBullDto } from '../../dto/cow';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators';
 import { User } from '../../entities/user.entity';
 
 @ApiTags('Cows')
 @ApiBearerAuth('JWT-auth')
-@Controller('api/v1/cows')
+@Controller(['api/v1/cows', 'api/v1/cattle', 'cattle'])
 @UseGuards(JwtAuthGuard)
 export class CowsController {
     constructor(
@@ -89,14 +89,52 @@ export class CowsController {
         }));
     }
 
-    @Get('family-tree')
-    @ApiOperation({ summary: 'Get family tree data for all cows' })
-    @ApiResponse({ status: 200, description: 'Family tree data with mother relationships' })
-    async getFamilyTree(
+    @Get('active-males')
+    @ApiOperation({ summary: 'Get active male bulls (for natural sire dropdowns)' })
+    @ApiResponse({ status: 200, description: 'List of active male bulls' })
+    async getActiveMales(
         @CurrentUser() user: User,
     ) {
         const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
-        return this.cowsService.getFamilyTree(farmId);
+        const cows = await this.cowsService.getActiveMales(farmId);
+        return cows.map((cow) => ({
+            id: cow.id,
+            tagId: cow.tagId,
+            name: cow.name,
+        }));
+    }
+
+    @Get('external-bulls')
+    @ApiOperation({ summary: 'Get all external/semen bulls used for AI breeding' })
+    @ApiResponse({ status: 200, description: 'List of external bulls' })
+    async getExternalBulls(
+        @CurrentUser() user: User,
+    ) {
+        const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
+        return this.cowsService.getExternalBulls(farmId);
+    }
+
+    @Post('external-bulls')
+    @ApiOperation({ summary: 'Add a new external/semen bull' })
+    @ApiResponse({ status: 201, description: 'External bull created successfully' })
+    async createExternalBull(
+        @Body() dto: CreateExternalBullDto,
+        @CurrentUser() user: User,
+    ) {
+        const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
+        return this.cowsService.createExternalBull(farmId, dto, user.id);
+    }
+
+    @Get('family-tree')
+    @ApiOperation({ summary: 'Get family tree pedigree data in relatives-tree Node format' })
+    @ApiQuery({ name: 'rootId', required: false, description: 'Optional root cow or bull ID to filter pedigree tree' })
+    @ApiResponse({ status: 200, description: 'Family tree data with parents, children, spouses, and metadata' })
+    async getFamilyTree(
+        @Query('rootId') rootId: string | undefined,
+        @CurrentUser() user: User,
+    ) {
+        const farmId = await this.farmsService.getDefaultFarmForUser(user.id);
+        return this.cowsService.getFamilyTree(farmId, rootId);
     }
 
     @Get(':cowId')

@@ -12,6 +12,7 @@ import { CowEvent } from './cow-event.entity';
 import { MilkRecord } from './milk-record.entity';
 import { FinancialTransaction } from './financial-transaction.entity';
 import { User } from './user.entity';
+import { ExternalBull } from './external-bull.entity';
 
 export type CowGender = 'male' | 'female';
 export type CowLifecycleStatus = 'active' | 'sold' | 'deceased';
@@ -69,6 +70,18 @@ export class Cow extends BaseEntity {
     @Column({ name: 'mother_id', type: 'uuid', nullable: true })
     motherId: string | null;
 
+    @Column({ name: 'sire_id', type: 'uuid', nullable: true })
+    sireId: string | null;
+
+    @Column({ name: 'external_sire_id', type: 'uuid', nullable: true })
+    externalSireId: string | null;
+
+    @Column({ name: 'breeding_method', type: 'varchar', nullable: true })
+    breedingMethod: 'NATURAL' | 'AI' | null;
+
+    @Column({ name: 'born_on_farm', type: 'boolean', default: true })
+    bornOnFarm: boolean;
+
     @Column({ name: 'photo_url', type: 'varchar', nullable: true })
     photoUrl: string | null;
 
@@ -76,9 +89,17 @@ export class Cow extends BaseEntity {
     @JoinColumn({ name: 'farm_id' })
     farm: Farm;
 
-    @ManyToOne(() => Cow, { nullable: true })
+    @ManyToOne(() => Cow, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: 'mother_id' })
     mother: Cow | null;
+
+    @ManyToOne(() => Cow, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'sire_id' })
+    sire: Cow | null;
+
+    @ManyToOne(() => ExternalBull, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'external_sire_id' })
+    externalSire: ExternalBull | null;
 
     @OneToMany(() => CowEvent, (event) => event.cow)
     events: CowEvent[];

@@ -12,3 +12,4 @@ export * from './loan.entity';
 export * from './loan-payment.entity';
 export * from './member-due.entity';
 export * from './financial-category.entity';
+export * from './external-bull.entity';
